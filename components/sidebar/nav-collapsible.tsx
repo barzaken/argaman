@@ -16,7 +16,12 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
-import type { DeliveryOrderItem, StoneItem } from "@/components/sidebar/types";
+
+import type {
+  DeliveryOrderItem,
+  StoneItem,
+} from "@/components/sidebar/types";
+import { SIDEBAR_PREVIEW_ICONS } from "@/components/sidebar/preview-icons";
 
 interface NavCollapsibleProps {
   inStock: StoneItem[];
@@ -43,15 +48,22 @@ function StoneCollapsible({ label, items }: { label: string; items: StoneItem[] 
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
-                const Icon = item.icon;
+                const Icon = SIDEBAR_PREVIEW_ICONS[item.icon];
                 return (
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton asChild>
                       <Link href={item.href} className="flex items-center gap-3">
+                        {item.colorHex ? (
+                          <span
+                            className="size-3 shrink-0 rounded-sm border border-border shadow-inner"
+                            style={{ backgroundColor: item.colorHex }}
+                            aria-hidden
+                          />
+                        ) : null}
                         <Icon
                           className={cn(
                             "size-4 shrink-0",
-                            item.iconColorClass
+                            item.iconColorClass ?? "text-muted-foreground"
                           )}
                           aria-hidden
                         />
@@ -95,7 +107,7 @@ export function NavCollapsible({
               <SidebarGroupContent>
                 <SidebarMenu>
                   {deliveryOrders.map((item) => {
-                    const Icon = item.icon;
+                    const Icon = SIDEBAR_PREVIEW_ICONS[item.icon];
                     return (
                       <SidebarMenuItem key={item.id}>
                         <SidebarMenuButton asChild>

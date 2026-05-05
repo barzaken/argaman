@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
 import type { SidebarData } from "@/components/sidebar/types";
+import { SIDEBAR_PREVIEW_ICONS } from "@/components/sidebar/preview-icons";
 import { useSidebar } from "../ui/sidebar";
 
 interface NavHeaderProps {
@@ -26,7 +27,7 @@ export function NavHeader({ data }: NavHeaderProps) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const { state } = useSidebar();
-  const isCollapsed = state === "collapsed"
+  const isCollapsed = state === "collapsed";
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -89,16 +90,22 @@ export function NavHeader({ data }: NavHeaderProps) {
           <CommandSeparator className="my-2" />
           <CommandGroup heading="במלאי">
             {data.navCollapsible.inStock.map((item) => {
-              const Icon = item.icon;
+              const Icon = SIDEBAR_PREVIEW_ICONS[item.icon];
               return (
                 <CommandItem
                   className="py-2!"
                   key={item.id}
                   onSelect={() => {
                     setOpen(false);
+                    router.push(item.href);
                   }}
                 >
-                  <Icon className={cn("me-2 h-4 w-4", item.iconColorClass)} />
+                  <Icon
+                    className={cn(
+                      "me-2 h-4 w-4",
+                      item.iconColorClass ?? "text-muted-foreground"
+                    )}
+                  />
                   <span>{item.title}</span>
                 </CommandItem>
               );
@@ -107,16 +114,22 @@ export function NavHeader({ data }: NavHeaderProps) {
           <CommandSeparator className="my-2" />
           <CommandGroup heading="לא במלאי">
             {data.navCollapsible.outOfStock.map((item) => {
-              const Icon = item.icon;
+              const Icon = SIDEBAR_PREVIEW_ICONS[item.icon];
               return (
                 <CommandItem
                   className="py-2!"
                   key={item.id}
                   onSelect={() => {
                     setOpen(false);
+                    router.push(item.href);
                   }}
                 >
-                  <Icon className={cn("me-2 h-4 w-4", item.iconColorClass)} />
+                  <Icon
+                    className={cn(
+                      "me-2 h-4 w-4",
+                      item.iconColorClass ?? "text-muted-foreground"
+                    )}
+                  />
                   <span>{item.title}</span>
                 </CommandItem>
               );
@@ -125,13 +138,14 @@ export function NavHeader({ data }: NavHeaderProps) {
           <CommandSeparator className="my-2" />
           <CommandGroup heading="תעודות משלוח">
             {data.navCollapsible.deliveryOrders.map((item) => {
-              const Icon = item.icon;
+              const Icon = SIDEBAR_PREVIEW_ICONS[item.icon];
               return (
                 <CommandItem
                   className="py-2!"
                   key={item.id}
                   onSelect={() => {
                     setOpen(false);
+                    router.push(item.href);
                   }}
                 >
                   <Icon className="me-2 h-4 w-4" />

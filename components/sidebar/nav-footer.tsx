@@ -9,8 +9,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -21,15 +19,22 @@ import {
 } from "@/components/ui/sidebar";
 import {
   BookmarkPlus,
-  Building2,
   LogOut,
   Plus,
   PlusCircle,
-  Puzzle,
   Settings,
   User,
-  Landmark,
 } from "lucide-react";
+
+import { createClient } from "@/lib/supabase/client";
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  }
+  return (parts[0]?.slice(0, 2) ?? "?").toUpperCase();
+}
 
 export function NavFooter({
   user,
@@ -40,41 +45,45 @@ export function NavFooter({
     avatar: string;
   };
 }) {
+  async function handleLogout() {
+    const sb = createClient();
+    await sb.auth.signOut();
+    window.location.href = "/login";
+  }
 
   return (
     <SidebarFooter className="p-4">
       <SidebarMenu>
         <SidebarMenuItem>
-          <div className="flex items-center gap-2 justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Avatar className="h-8 w-8 rounded-full">
                     <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback className="rounded-full">NY</AvatarFallback>
+                    <AvatarFallback className="rounded-full">
+                      {initials(user.name)}
+                    </AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="m-2 w-56" align="start">
                   <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                    מצב מערכת
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem>
-                    <User size={16} className="opacity-80" aria-hidden />
+                    <User data-icon="inline-start" aria-hidden />
                     פרופיל
                   </DropdownMenuItem>
                   <DropdownMenuItem>
-                    <Settings
-                      size={16}
-                      className="opacity-80"
-                      aria-hidden
-                    />
+                    <Settings data-icon="inline-start" aria-hidden />
                     הגדרות
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <LogOut size={16} className="opacity-80" aria-hidden />
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void handleLogout();
+                    }}
+                  >
+                    <LogOut data-icon="inline-start" aria-hidden />
                     יציאה
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -88,7 +97,7 @@ export function NavFooter({
                   className="rounded-full shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   aria-label="הוספה מהירה"
                 >
-                  <Plus size={16} aria-hidden />
+                  <Plus aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-fit pb-2">
@@ -96,8 +105,7 @@ export function NavFooter({
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/inventory/new" className="cursor-pointer">
                     <PlusCircle
-                      size={16}
-                      className="me-2 opacity-80"
+                      data-icon="inline-start"
                       aria-hidden
                     />
                     הוסף למלאי
@@ -106,24 +114,10 @@ export function NavFooter({
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/orders/new" className="cursor-pointer">
                     <BookmarkPlus
-                      size={16}
-                      className="me-2 opacity-80"
+                      data-icon="inline-start"
                       aria-hidden
                     />
                     תעודת הזמנה
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/dashboard/deliveries/new"
-                    className="cursor-pointer"
-                  >
-                    <Puzzle
-                      size={16}
-                      className="me-2 opacity-80"
-                      aria-hidden
-                    />
-                    תעודת משלוח
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>

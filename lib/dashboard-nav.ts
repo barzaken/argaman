@@ -29,6 +29,7 @@ export const dashboardNavMain: DashboardNavMainItem[] = [
     title: "דאשבורד",
     icon: LayoutDashboard,
     ctaLabel: "הוסף הזמנה",
+    headerCtaHref: "/dashboard/orders/new",
   },
   {
     id: "stones",
@@ -68,6 +69,15 @@ export const dashboardNavMain: DashboardNavMainItem[] = [
     title: "תעודות הזמנה",
     icon: FileText,
     ctaLabel: "תעודת הזמנה",
+    headerCtaHref: "/dashboard/orders/new",
+  },
+  {
+    id: "orders-new",
+    url: "/dashboard/orders/new",
+    title: "תעודת הזמנה חדשה",
+    icon: FileText,
+    ctaLabel: null,
+    hideInSidebar: true,
   },
   {
     id: "order-items",
@@ -81,7 +91,7 @@ export const dashboardNavMain: DashboardNavMainItem[] = [
     url: "/dashboard/deliveries",
     title: "תעודות משלוח",
     icon: Truck,
-    ctaLabel: "תעודת משלוח",
+    ctaLabel: null,
   },
   {
     id: "customers",
@@ -89,6 +99,15 @@ export const dashboardNavMain: DashboardNavMainItem[] = [
     title: "לקוחות",
     icon: Users,
     ctaLabel: "הוסף לקוח",
+    headerCtaHref: "/dashboard/customers/new",
+  },
+  {
+    id: "customers-new",
+    url: "/dashboard/customers/new",
+    title: "לקוח חדש",
+    icon: Users,
+    ctaLabel: null,
+    hideInSidebar: true,
   },
   {
     id: "debtors",

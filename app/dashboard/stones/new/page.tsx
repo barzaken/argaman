@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { createStone } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { normalizeHex } from "@/app/dashboard/inventory/inventory-demo-data";
+import { normalizeHex } from "@/lib/db/format";
 
 const POLISH_OPTIONS = ["מבריק", "מט", "למינציה", "מוברש"] as const;
 
@@ -63,11 +64,26 @@ export default function NewStonePage() {
   const [colorHex, setColorHex] = useState("#57534e");
   const [stoneName, setStoneName] = useState("");
   const [polishType, setPolishType] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!polishType) return;
+    setPending(true);
+    setError(null);
+    const fd = new FormData();
+    fd.set("name", stoneName);
+    fd.set("polish_type", polishType);
+    fd.set("color_hex", normalizeHex(colorHex));
+    const res = await createStone(fd);
+    setPending(false);
+    if (!res.ok) {
+      setError(res.message);
+      return;
+    }
     router.push("/dashboard/stones");
+    router.refresh();
   }
 
   return (
@@ -86,7 +102,7 @@ export default function NewStonePage() {
                     type="color"
                     value={normalizeHex(colorHex).slice(0, 7)}
                     onChange={(e) => setColorHex(e.target.value)}
-                    className="size-14 cursor-pointer overflow-hidden rounded-xl border border-border bg-background p-1 shadow-sm [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-lg [&::-webkit-color-swatch]:border-0 [&::-moz-color-swatch]:rounded-lg [&::-moz-color-swatch]:border-0"
+                    className="size-14 cursor-pointer overflow-hidden rounded-xl border border-border bg-background p-1 shadow-sm [&::-moz-color-swatch]:rounded-lg [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-lg [&::-webkit-color-swatch]:border-0"
                     aria-label="בחירת צבע"
                   />
                 </div>
@@ -121,6 +137,11 @@ export default function NewStonePage() {
                   </Select>
                 </Field>
               </div>
+              {error ? (
+                <p className="text-destructive text-sm" role="alert">
+                  {error}
+                </p>
+              ) : null}
             </Section>
           </div>
 
@@ -138,7 +159,9 @@ export default function NewStonePage() {
           >
             ביטול
           </Button>
-          <Button type="submit">שמירה</Button>
+          <Button type="submit" disabled={pending}>
+            {pending ? "שומר…" : "שמירה"}
+          </Button>
         </div>
       </form>
     </div>

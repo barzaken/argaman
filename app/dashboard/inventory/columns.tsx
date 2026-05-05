@@ -1,67 +1,77 @@
 "use client";
 
+import { useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ErrorDialog } from "@/components/error-dialog";
 
+import type { InventoryItemViewRow } from "@/lib/db/types";
 import {
-  computeVolumeM3,
-  hexToHebrewColorName,
-  type InventoryItem,
-  type InventoryStatus,
-} from "./inventory-demo-data";
+  formatIls,
+  formatIlsDense,
+  formatMeters,
+  formatVolumeM3,
+  normalizeHex,
+} from "@/lib/db/format";
+import { deleteInventoryItem } from "./actions";
 
-const statusLabels: Record<InventoryStatus, string> = {
+export type InventoryRow = InventoryItemViewRow;
+
+const statusLabels: Record<InventoryRow["status"], string> = {
   available: "זמין",
   unavailable: "לא זמין",
   in_transit: "בדרך",
 };
 
-const ils = new Intl.NumberFormat("he-IL", {
-  style: "currency",
-  currency: "ILS",
-  maximumFractionDigits: 0,
-});
-
-const ilsDense = new Intl.NumberFormat("he-IL", {
-  style: "currency",
-  currency: "ILS",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
-
-function formatMeters(n: number): string {
-  return new Intl.NumberFormat("he-IL", {
-    maximumFractionDigits: 3,
-  }).format(n);
-}
-
-function formatVolumeM3(n: number): string {
-  return new Intl.NumberFormat("he-IL", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  }).format(n);
-}
-
-/** Labels for column visibility menu (keys match TanStack column ids). */
+/** Labels for column visibility menu */
 export const inventoryColumnLabels: Record<string, string> = {
-  colorHex: "צבע",
-  stoneName: "שם האבן",
-  polishType: "סוג ליטוש",
+  color_hex: "צבע",
+  stone_name: "שם האבן",
+  polish_type: "סוג ליטוש",
   dimensions: "מידות",
-  quantity: "כמות",
+  quantity_total: "כמות במשלוח",
+  quantity_available: "זמין",
   volumeM3: "נפח (קו״ב)",
-  pricePerM3: "מחיר לקו״ב",
-  customerPrice: "מחיר ללקוח",
+  price_per_m3: "מחיר לקו״ב",
+  customer_price: "מחיר ללקוח",
   status: "סטטוס",
+  actions: "פעולות",
 };
 
-export const inventoryColumns: ColumnDef<InventoryItem>[] = [
+function InventoryActions({ id }: { id: string }) {
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <Button
+        variant="outline"
+        size="sm"
+        type="button"
+        onClick={async () => {
+          if (!confirm("למחוק או להפוך למלאי לא זמין?")) return;
+          const res = await deleteInventoryItem(id);
+          if (!res.ok) setErrorMessage(res.message);
+          else window.location.reload();
+        }}
+      >
+        מחיקה
+      </Button>
+      <ErrorDialog
+        message={errorMessage}
+        onClose={() => setErrorMessage(null)}
+      />
+    </div>
+  );
+}
+
+export const inventoryColumns: ColumnDef<InventoryRow>[] = [
   {
-    accessorKey: "colorHex",
+    accessorKey: "color_hex",
     header: "צבע",
     cell: ({ row }) => {
-      const hex = row.getValue("colorHex") as string;
+      const hex = normalizeHex(row.original.color_hex);
       return (
         <div className="flex items-center gap-2">
           <span
@@ -69,46 +79,56 @@ export const inventoryColumns: ColumnDef<InventoryItem>[] = [
             style={{ backgroundColor: hex }}
             title={hex}
           />
-          <span>{hexToHebrewColorName(hex)}</span>
+          <span>{hex.toUpperCase()}</span>
         </div>
       );
     },
   },
   {
-    accessorKey: "stoneName",
+    accessorKey: "stone_name",
     header: "שם האבן",
   },
   {
-    accessorKey: "polishType",
+    accessorKey: "polish_type",
     header: "סוג ליטוש",
   },
   {
     id: "dimensions",
     header: "מידות (מ׳)",
     accessorFn: (row) =>
-      `${row.lengthM}×${row.widthM}×${row.heightM}`,
+      `${row.length_m}×${row.width_m}×${row.height_m}`,
     cell: ({ row }) => {
-      const { lengthM, widthM, heightM } = row.original;
+      const { length_m, width_m, height_m } = row.original;
       return (
         <span className="tabular-nums">
-          {formatMeters(lengthM)}×{formatMeters(widthM)}×{formatMeters(heightM)}
+          {formatMeters(Number(length_m))}×{formatMeters(Number(width_m))}×
+          {formatMeters(Number(height_m))}
         </span>
       );
     },
   },
   {
-    accessorKey: "quantity",
-    header: () => <div className="text-end">כמות</div>,
+    accessorKey: "quantity_total",
+    header: () => <div className="text-end">כמות במשלוח</div>,
     cell: ({ row }) => (
       <div className="text-end font-medium tabular-nums">
-        {row.getValue("quantity")}
+        {row.original.quantity_total}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "quantity_available",
+    header: () => <div className="text-end">זמין</div>,
+    cell: ({ row }) => (
+      <div className="text-end font-medium tabular-nums">
+        {row.original.quantity_available}
       </div>
     ),
   },
   {
     id: "volumeM3",
     header: () => <div className="text-end">נפח (קו״ב)</div>,
-    accessorFn: (row) => computeVolumeM3(row),
+    accessorFn: (row) => Number(row.volume_m3),
     cell: ({ getValue }) => (
       <div className="text-end font-medium tabular-nums">
         {formatVolumeM3(getValue() as number)}
@@ -116,18 +136,20 @@ export const inventoryColumns: ColumnDef<InventoryItem>[] = [
     ),
   },
   {
-    accessorKey: "pricePerM3",
+    accessorKey: "price_per_m3",
     header: () => <div className="text-end">מחיר לקו״ב</div>,
     cell: ({ row }) => (
-      <div className="text-end tabular-nums">{ilsDense.format(row.original.pricePerM3)}</div>
+      <div className="text-end tabular-nums">
+        {formatIlsDense(Number(row.original.price_per_m3))}
+      </div>
     ),
   },
   {
-    accessorKey: "customerPrice",
+    accessorKey: "customer_price",
     header: () => <div className="text-end">מחיר ללקוח</div>,
     cell: ({ row }) => (
       <div className="text-end font-medium tabular-nums">
-        {ils.format(row.original.customerPrice)}
+        {formatIls(Number(row.original.customer_price))}
       </div>
     ),
   },
@@ -135,7 +157,7 @@ export const inventoryColumns: ColumnDef<InventoryItem>[] = [
     accessorKey: "status",
     header: "סטטוס",
     cell: ({ row }) => {
-      const status = row.getValue("status") as InventoryStatus;
+      const status = row.original.status;
       const variant =
         status === "available"
           ? "default"
@@ -143,6 +165,14 @@ export const inventoryColumns: ColumnDef<InventoryItem>[] = [
             ? "secondary"
             : "outline";
       return <Badge variant={variant}>{statusLabels[status]}</Badge>;
+    },
+  },
+  {
+    id: "actions",
+    header: "",
+    cell: ({ row }) => {
+      const id = row.original.id;
+      return <InventoryActions id={id} />;
     },
   },
 ];

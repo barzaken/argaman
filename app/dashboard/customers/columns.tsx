@@ -1,72 +1,92 @@
 "use client";
 
+import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
-import type { Customer } from "./customers-demo-data";
+import type { CustomerRow } from "@/lib/db/types";
+import { formatIls } from "@/lib/db/format";
 
-const statusLabels: Record<Customer["status"], string> = {
-  active: "פעיל",
-  inactive: "לא פעיל",
-  lead: "פוטנציאלי",
+export type CustomerTableRow = CustomerRow & {
+  order_count: number;
+  unpaid_balance: number;
 };
 
-/** Labels for column visibility menu (keys match TanStack column ids). */
 export const customerColumnLabels: Record<string, string> = {
   name: "שם",
-  company: "חברה",
-  email: "אימייל",
+  tax_id: "ח.פ / ת״ז",
+  email: "דוא״ל",
   phone: "טלפון",
-  city: "עיר",
-  status: "סטטוס",
-  totalOrders: "הזמנות",
+  address: "כתובת",
+  order_count: "הזמנות",
+  unpaid_balance: "יתרה פתוחה",
+  actions: "פעולות",
 };
 
-export const customerColumns: ColumnDef<Customer>[] = [
+export const customerColumns: ColumnDef<CustomerTableRow>[] = [
   {
     accessorKey: "name",
     header: "שם",
   },
   {
-    accessorKey: "company",
-    header: "חברה",
+    accessorKey: "tax_id",
+    header: "ח.פ / ת״ז",
+    cell: ({ row }) => (
+      <span className="tabular-nums">{row.getValue("tax_id")}</span>
+    ),
   },
   {
     accessorKey: "email",
-    header: "אימייל",
+    header: "דוא״ל",
     cell: ({ row }) => (
-      <span className="tabular-nums">{row.getValue("email")}</span>
+      <span className="tabular-nums">{row.getValue("email") ?? "—"}</span>
     ),
   },
   {
     accessorKey: "phone",
     header: "טלפון",
+    cell: ({ row }) => (
+      <span className="tabular-nums">{row.getValue("phone") ?? "—"}</span>
+    ),
   },
   {
-    accessorKey: "city",
-    header: "עיר",
+    accessorKey: "address",
+    header: "כתובת",
+    cell: ({ row }) => (
+      <span className="max-w-[12rem] truncate">
+        {(row.getValue("address") as string | null) ?? "—"}
+      </span>
+    ),
   },
   {
-    accessorKey: "status",
-    header: "סטטוס",
-    cell: ({ row }) => {
-      const status = row.getValue("status") as Customer["status"];
-      const variant =
-        status === "active"
-          ? "default"
-          : status === "lead"
-            ? "secondary"
-            : "outline";
-      return <Badge variant={variant}>{statusLabels[status]}</Badge>;
-    },
-  },
-  {
-    accessorKey: "totalOrders",
+    accessorKey: "order_count",
     header: () => <div className="text-end">הזמנות</div>,
     cell: ({ row }) => (
       <div className="text-end font-medium tabular-nums">
-        {row.getValue("totalOrders")}
+        {row.original.order_count}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "unpaid_balance",
+    header: () => <div className="text-end">יתרה פתוחה</div>,
+    cell: ({ row }) => (
+      <div className="text-end font-medium tabular-nums">
+        {formatIls(row.original.unpaid_balance)}
+      </div>
+    ),
+  },
+  {
+    id: "actions",
+    header: "",
+    cell: ({ row }) => (
+      <div onClick={(e) => e.stopPropagation()}>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/dashboard/customers/${row.original.id}/edit`}>
+            עריכה
+          </Link>
+        </Button>
       </div>
     ),
   },

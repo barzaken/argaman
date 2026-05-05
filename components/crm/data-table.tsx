@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
 import type {
   ColumnDef,
@@ -30,24 +31,60 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
-import { inventoryColumnLabels } from "./columns";
+export type CrmRowNavigateKind =
+  | "inventory-edit"
+  | "order-detail"
+  | "delivery-detail"
+  | "customer-detail";
 
-type InventoryDataTableProps<TData, TValue> = {
+function rowHrefFromKind(kind: CrmRowNavigateKind, id: string): string {
+  switch (kind) {
+    case "inventory-edit":
+      return `/dashboard/inventory/${id}/edit`;
+    case "order-detail":
+      return `/dashboard/orders/${id}`;
+    case "delivery-detail":
+      return `/dashboard/deliveries/${id}`;
+    case "customer-detail":
+      return `/dashboard/customers/${id}`;
+  }
+}
+
+export type CrmDataTableProps<
+  TData extends { id: string },
+  TValue,
+> = {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  filterColumnId?: string;
+  filterPlaceholder?: string;
+  columnLabels?: Record<string, string>;
+  /** Opens detail/edit on row click (interactive cells use stopPropagation). */
+  navigateRows?: CrmRowNavigateKind;
 };
 
-export function InventoryDataTable<TData, TValue>({
+export function CrmDataTable<
+  TData extends { id: string },
+  TValue,
+>({
   columns,
   data,
-}: InventoryDataTableProps<TData, TValue>) {
+  filterColumnId,
+  filterPlaceholder = "סנן…",
+  columnLabels = {},
+  navigateRows,
+}: CrmDataTableProps<TData, TValue>) {
+  const router = useRouter();
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
 
+  /* TanStack Table returns unstable function refs; React Compiler skips memoization here. */
+  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable
   const table = useReactTable({
     data,
     columns,
@@ -62,18 +99,22 @@ export function InventoryDataTable<TData, TValue>({
   });
 
   const visibleColumnCount = table.getVisibleLeafColumns().length;
+  const filterCol =
+    filterColumnId != null ? table.getColumn(filterColumnId) : undefined;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2 py-1">
-        <Input
-          placeholder="סנן לפי שם האבן..."
-          value={(table.getColumn("stoneName")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("stoneName")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
+        {filterCol ? (
+          <Input
+            placeholder={filterPlaceholder}
+            value={(filterCol.getFilterValue() as string) ?? ""}
+            onChange={(event) => filterCol.setFilterValue(event.target.value)}
+            className="max-w-sm"
+          />
+        ) : (
+          <span />
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline">עמודות</Button>
@@ -90,7 +131,7 @@ export function InventoryDataTable<TData, TValue>({
                     column.toggleVisibility(!!value)
                   }
                 >
-                  {inventoryColumnLabels[column.id] ?? column.id}
+                  {columnLabels[column.id] ?? column.id}
                 </DropdownMenuCheckboxItem>
               ))}
           </DropdownMenuContent>
@@ -117,10 +158,18 @@ export function InventoryDataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row) => {
+                const href = navigateRows
+                  ? rowHrefFromKind(navigateRows, row.original.id)
+                  : undefined;
+                return (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={cn(href && "cursor-pointer hover:bg-muted/60")}
+                  onClick={() => {
+                    if (href) router.push(href);
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -131,7 +180,8 @@ export function InventoryDataTable<TData, TValue>({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
+              );
+              })
             ) : (
               <TableRow>
                 <TableCell

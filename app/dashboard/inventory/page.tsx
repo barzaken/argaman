@@ -1,27 +1,58 @@
-"use client";
-
+import { CrmDataTable } from "@/components/crm/data-table";
 import { KpiCard } from "@/components/kpi-card";
-import { Calendar, CircleDollarSign, Package, Users } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 
-import { inventoryColumns } from "./columns";
-import { inventoryDemoData } from "./inventory-demo-data";
-import { InventoryDataTable } from "./inventory-data-table";
+import {
+  inventoryColumnLabels,
+  inventoryColumns,
+  type InventoryRow,
+} from "./columns";
 
-export default function InventoryPage() {
+export default async function InventoryPage() {
+  const supabase = await createClient();
+
+  const { data: rows, error } = await supabase
+    .from("inventory_items_view")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  const list = (rows ?? []) as InventoryRow[];
+
+  const totalItems = list.length;
+  const availableItems = list.filter(
+    (r) => r.status === "available" && r.quantity_available > 0
+  ).length;
+  const notAvailableItems = list.filter(
+    (r) => r.status === "unavailable" || r.quantity_available <= 0
+  ).length;
+  const inTransitItems = list.filter((r) => r.status === "in_transit").length;
+
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
       <div className="grid border-b sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="הזמנות" value={100} Icon={Calendar} />
-        <KpiCard label="במלאי" value={48} Icon={Package} />
-        <KpiCard label="לקוחות" value={256} Icon={Users} />
-        <KpiCard label="בהמתנה" value={12400} Icon={CircleDollarSign} />
+        <KpiCard label="פריטים במלאי" value={totalItems} icon="package" />
+        <KpiCard
+          label="זמינים במלאי"
+          value={availableItems}
+          icon="circle-dollar-sign"
+        />
+        <KpiCard label="לא במלאי" value={notAvailableItems} icon="calendar" />
+        <KpiCard label="במשלוח (בדרך)" value={inTransitItems} icon="truck" />
       </div>
       <div className="flex flex-1 flex-col overflow-auto p-4 md:p-6">
         <div className="mx-auto w-full max-w-[min(100%,80rem)]">
-          <InventoryDataTable
-            columns={inventoryColumns}
-            data={inventoryDemoData}
-          />
+          {error ? (
+            <p className="text-destructive text-sm">{error.message}</p>
+          ) : (
+            <CrmDataTable
+              columns={inventoryColumns}
+              data={list}
+              filterColumnId="stone_name"
+              filterPlaceholder="סנן לפי שם האבן..."
+              columnLabels={inventoryColumnLabels}
+              navigateRows="inventory-edit"
+            />
+          )}
         </div>
       </div>
     </div>
