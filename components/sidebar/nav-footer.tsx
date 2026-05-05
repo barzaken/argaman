@@ -69,22 +69,22 @@ export function NavFooter({
                 <DropdownMenuContent className="m-2 w-56" align="start">
                   <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User data-icon="inline-start" aria-hidden />
+                  <DropdownMenuItem className="cursor-pointer justify-end">
                     פרופיל
+                    <User data-icon="inline-start" aria-hidden />
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings data-icon="inline-start" aria-hidden />
+                  <DropdownMenuItem className="cursor-pointer justify-end">
                     הגדרות
+                    <Settings data-icon="inline-start" aria-hidden />
                   </DropdownMenuItem>
-                  <DropdownMenuItem
+                  <DropdownMenuItem className="cursor-pointer justify-end "
                     onClick={(e) => {
                       e.preventDefault();
                       void handleLogout();
                     }}
                   >
-                    <LogOut data-icon="inline-start" aria-hidden />
                     יציאה
+                    <LogOut data-icon="inline-start" aria-hidden />
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

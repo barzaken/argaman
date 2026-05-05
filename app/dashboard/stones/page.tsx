@@ -33,7 +33,7 @@ export default async function StonesPage() {
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-auto">
       <div className="flex flex-1 flex-col p-4 md:p-6">
         <div className="mx-auto w-full max-w-[min(100%,80rem)]">
-          <ul className="grid list-none gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid list-none gap-4 p-0 sm:grid-cols-4 xl:grid-cols-4">
             {(stones ?? []).map((stone) => (
               <li key={stone.id}>
                 <Link
@@ -41,7 +41,7 @@ export default async function StonesPage() {
                   className="block overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/30 hover:border-muted-foreground/25 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div
-                    className="h-28 w-full border-b border-black/10"
+                    className="h-36 w-full border-b border-black/10"
                     style={{
                       backgroundColor: stone.color_hex as string,
                     }}

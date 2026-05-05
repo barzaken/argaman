@@ -98,7 +98,7 @@ export default async function DashboardPage() {
             <h2 className="text-sm font-semibold text-foreground">קטלוג במלאי</h2>
             <p className="text-muted-foreground text-xs">משלוחים עם זמינות</p>
           </div>
-          <ul className="grid list-none gap-3 p-4 sm:grid-cols-2">
+          <ul className="grid list-none gap-3 p-4 sm:grid-cols-3">
             {catalog.map((row) => (
               <li key={row.id}>
                 <Link
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
                   className="block overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/30 hover:border-muted-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div
-                    className="h-16 w-full border-b border-black/10"
+                    className="h-36  w-full border-b border-black/10"
                     style={{ backgroundColor: row.color_hex }}
                     aria-hidden
                   />
