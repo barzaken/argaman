@@ -1,6 +1,6 @@
 import { OrderForm } from "./order-form";
 import { createClient } from "@/lib/supabase/server";
-import type { CustomerInventoryPriceRow } from "@/lib/db/types";
+import type { CustomerStonePriceRow } from "@/lib/db/types";
 import type { CustomerRow } from "@/lib/db/types";
 import type { InventoryItemViewRow } from "@/lib/db/types";
 import type { StoneRow } from "@/lib/db/types";
@@ -18,7 +18,7 @@ export default async function NewOrderPage() {
         .eq("status", "available")
         .gt("quantity_available", 0)
         .order("created_at", { ascending: false }),
-      supabase.from("customer_inventory_prices").select("*"),
+      supabase.from("customer_stone_prices").select("*"),
     ]);
 
   return (
@@ -26,7 +26,7 @@ export default async function NewOrderPage() {
       customers={(customers ?? []) as CustomerRow[]}
       stones={(stones ?? []) as StoneRow[]}
       inventory={(inventory ?? []) as InventoryItemViewRow[]}
-      overrides={(overrides ?? []) as CustomerInventoryPriceRow[]}
+      overrides={(overrides ?? []) as CustomerStonePriceRow[]}
     />
   );
 }

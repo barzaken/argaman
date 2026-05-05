@@ -16,7 +16,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { StoneRow } from "@/lib/db/types";
-import { computeVolumeM3 } from "@/lib/db/calculations";
+import { computeVolumeM3FromCm } from "@/lib/db/calculations";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "available", label: "זמין" },
@@ -68,9 +68,9 @@ function Section({
 export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
   const router = useRouter();
   const [selectedStoneId, setSelectedStoneId] = useState<string>("");
-  const [lengthM, setLengthM] = useState("2.4");
-  const [widthM, setWidthM] = useState("1.35");
-  const [heightM, setHeightM] = useState("0.02");
+  const [lengthCm, setLengthCm] = useState("240");
+  const [widthCm, setWidthCm] = useState("135");
+  const [heightCm, setHeightCm] = useState("2");
   const [quantity, setQuantity] = useState("1");
   const [pricePerM3, setPricePerM3] = useState("");
   const [customerPrice, setCustomerPrice] = useState("");
@@ -86,13 +86,18 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
   );
 
   const volumePreview = useMemo(() => {
-    const L = parseFloat(lengthM.replace(",", ".")) || 0;
-    const W = parseFloat(widthM.replace(",", ".")) || 0;
-    const H = parseFloat(heightM.replace(",", ".")) || 0;
+    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
+    const W = parseFloat(widthCm.replace(",", ".")) || 0;
+    const H = parseFloat(heightCm.replace(",", ".")) || 0;
     const Q = parseInt(quantity.replace(",", "."), 10) || 0;
     if (!L || !W || !H || !Q) return null;
-    return computeVolumeM3({ lengthM: L, widthM: W, heightM: H, quantity: Q });
-  }, [lengthM, widthM, heightM, quantity]);
+    return computeVolumeM3FromCm({
+      lengthCm: L,
+      widthCm: W,
+      heightCm: H,
+      quantity: Q,
+    });
+  }, [lengthCm, widthCm, heightCm, quantity]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -101,9 +106,12 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
     setError(null);
     const fd = new FormData();
     fd.set("stone_id", selectedStoneId);
-    fd.set("length_m", lengthM.replace(",", "."));
-    fd.set("width_m", widthM.replace(",", "."));
-    fd.set("height_m", heightM.replace(",", "."));
+    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
+    const W = parseFloat(widthCm.replace(",", ".")) || 0;
+    const H = parseFloat(heightCm.replace(",", ".")) || 0;
+    fd.set("length_m", String(L / 100));
+    fd.set("width_m", String(W / 100));
+    fd.set("height_m", String(H / 100));
     fd.set("quantity_total", quantity);
     fd.set("price_per_m3", pricePerM3.replace(",", "."));
     fd.set("customer_price", customerPrice.replace(",", "."));
@@ -190,32 +198,33 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
               className="flex-none justify-start py-6 lg:pt-2"
             >
               <div className="grid w-full gap-4 sm:grid-cols-3">
-                <Field label="אורך (מ׳)">
+
+                <Field label="גובה / עובי (ס״מ)">
                   <Input
                     dir="ltr"
                     inputMode="decimal"
-                    value={lengthM}
-                    onChange={(e) => setLengthM(e.target.value)}
+                    value={heightCm}
+                    onChange={(e) => setHeightCm(e.target.value)}
                     step="any"
                     required
                   />
                 </Field>
-                <Field label="רוחב (מ׳)">
+                <Field label="רוחב (ס״מ)">
                   <Input
                     dir="ltr"
                     inputMode="decimal"
-                    value={widthM}
-                    onChange={(e) => setWidthM(e.target.value)}
+                    value={widthCm}
+                    onChange={(e) => setWidthCm(e.target.value)}
                     step="any"
                     required
                   />
                 </Field>
-                <Field label="גובה (מ׳)">
+                <Field label="אורך (ס״מ)">
                   <Input
                     dir="ltr"
                     inputMode="decimal"
-                    value={heightM}
-                    onChange={(e) => setHeightM(e.target.value)}
+                    value={lengthCm}
+                    onChange={(e) => setLengthCm(e.target.value)}
                     step="any"
                     required
                   />

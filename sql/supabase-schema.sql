@@ -107,22 +107,21 @@ CREATE TRIGGER inventory_items_set_updated_at
 
 CREATE INDEX inventory_items_stone_id_idx ON public.inventory_items(stone_id);
 
-CREATE TABLE public.customer_inventory_prices (
+CREATE TABLE public.customer_stone_prices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-  inventory_item_id uuid NOT NULL REFERENCES public.inventory_items(id) ON DELETE CASCADE,
-  price_per_m3 numeric(12,2),
-  customer_price numeric(12,2),
+  stone_id uuid NOT NULL REFERENCES public.stones(id) ON DELETE CASCADE,
+  price_per_m3 numeric(12,2) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT customer_inventory_prices_one_price_chk CHECK (
-    price_per_m3 IS NOT NULL OR customer_price IS NOT NULL
-  ),
-  CONSTRAINT customer_inventory_prices_unique UNIQUE (customer_id, inventory_item_id)
+  CONSTRAINT customer_stone_prices_unique UNIQUE (customer_id, stone_id)
 );
 
-CREATE TRIGGER customer_inventory_prices_set_updated_at
-  BEFORE UPDATE ON public.customer_inventory_prices
+CREATE INDEX customer_stone_prices_customer_id_idx
+  ON public.customer_stone_prices (customer_id);
+
+CREATE TRIGGER customer_stone_prices_set_updated_at
+  BEFORE UPDATE ON public.customer_stone_prices
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE TABLE public.orders (
@@ -291,7 +290,8 @@ SELECT
   o.signature_url AS order_signature_url,
   c.name AS customer_name,
   c.phone AS customer_phone,
-  c.email AS customer_email
+  c.email AS customer_email,
+  c.tax_id AS customer_tax_id
 FROM public.deliveries d
 JOIN public.orders o ON o.id = d.order_id
 JOIN public.customers c ON c.id = d.customer_id;
@@ -615,7 +615,7 @@ $$;
 ALTER TABLE public.stones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.customer_inventory_prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.customer_stone_prices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
@@ -630,7 +630,7 @@ CREATE POLICY customers_authenticated_all ON public.customers
 CREATE POLICY inventory_items_authenticated_all ON public.inventory_items
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
-CREATE POLICY customer_inventory_prices_authenticated_all ON public.customer_inventory_prices
+CREATE POLICY customer_stone_prices_authenticated_all ON public.customer_stone_prices
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY orders_authenticated_all ON public.orders

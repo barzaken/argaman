@@ -69,6 +69,7 @@ export default async function CustomersPage() {
             rows.reduce((s, r) => s + r.unpaid_balance, 0)
           )}
           icon="layout-dashboard"
+          valueType="currency"
         />
       </div>
       <div className="flex flex-1 flex-col overflow-auto p-4 md:p-6">

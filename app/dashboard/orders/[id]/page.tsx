@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import type { OrderItemViewRow, OrderViewRow, PriorityDb } from "@/lib/db/types";
-import { formatIls, formatVolumeM3 } from "@/lib/db/format";
+import { formatIls, formatIssueDate, formatVolumeM3 } from "@/lib/db/format";
 
 const orderStatusLabels: Record<OrderViewRow["status"], string> = {
   open: "פתוחה",
@@ -73,6 +73,12 @@ export default async function OrderDetailPage({
               הזמנה #{o.order_number}
             </h2>
             <p className="text-muted-foreground text-sm">{o.customer_name}</p>
+            <p className="text-muted-foreground text-sm">
+              תאריך יצירת הזמנה:{" "}
+              <span className="tabular-nums text-foreground">
+                {formatIssueDate(o.created_at)}
+              </span>
+            </p>
             <p className="text-muted-foreground text-sm">
               סטטוס: {orderStatusLabels[o.status]} · תעדוף:{ " "}
               <span className="inline-flex items-center gap-1.5 align-middle">

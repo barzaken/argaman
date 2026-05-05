@@ -1,5 +1,7 @@
 "use client";
 
+import { formatIls } from "@/lib/db/format";
+import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import {
   Calendar,
@@ -49,10 +51,19 @@ type KpiCardProps = {
   label: string;
   value: number;
   icon: KpiIconName;
+  /** ברירת מחדל — מספר (ספירה). currency — סכום בשקלים עם ‎₪‎ */
+  valueType?: "count" | "currency";
 };
 
-export function KpiCard({ label, value, icon }: KpiCardProps) {
+export function KpiCard({
+  label,
+  value,
+  icon,
+  valueType = "count",
+}: KpiCardProps) {
   const Icon = KPI_ICONS[icon];
+  const display =
+    valueType === "currency" ? formatIls(value) : String(value);
 
   return (
     <section className="flex min-h-[7.5rem] flex-col justify-between border-l border-border bg-background p-5">
@@ -65,8 +76,15 @@ export function KpiCard({ label, value, icon }: KpiCardProps) {
           {label}
         </p>
       </div>
-      <p className="text-end text-3xl font-semibold tracking-tight tabular-nums text-foreground">
-        {value}
+      <p
+        className={cn(
+          "text-end font-semibold tracking-tight text-foreground",
+          valueType === "currency"
+            ? "text-xl tabular-nums leading-snug sm:text-2xl"
+            : "text-3xl tabular-nums"
+        )}
+      >
+        {display}
       </p>
     </section>
   );

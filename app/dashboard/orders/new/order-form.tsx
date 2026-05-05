@@ -16,14 +16,15 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type {
-  CustomerInventoryPriceRow,
   CustomerRow,
+  CustomerStonePriceRow,
   InventoryItemViewRow,
   StoneRow,
 } from "@/lib/db/types";
 import {
   computeLineSubtotal,
-  computeVolumeM3,
+  computeVolumeM3FromCm,
+  metersToCmInput,
   pricePerM3ExVatFromInclusive,
   computeTotalWithVat,
   computeVatAmount,
@@ -43,9 +44,9 @@ type Line = {
   key: string;
   stone_id: string;
   inventory_item_id: string;
-  length_m: string;
-  width_m: string;
-  height_m: string;
+  length_cm: string;
+  width_cm: string;
+  height_cm: string;
   quantity: string;
   price_per_m3: string;
 };
@@ -76,7 +77,7 @@ export function OrderForm({
   customers: CustomerRow[];
   stones: StoneRow[];
   inventory: InventoryItemViewRow[];
-  overrides: CustomerInventoryPriceRow[];
+  overrides: CustomerStonePriceRow[];
 }) {
   const router = useRouter();
   const [customerId, setCustomerId] = useState("");
@@ -91,9 +92,9 @@ export function OrderForm({
       key: newLineKey(),
       stone_id: "",
       inventory_item_id: "",
-      length_m: "",
-      width_m: "",
-      height_m: "",
+      length_cm: "",
+      width_cm: "",
+      height_cm: "",
       quantity: "1",
       price_per_m3: "",
     },
@@ -101,25 +102,30 @@ export function OrderForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  function inventoryForStone(stoneId: string) {
-    return inventory.filter(
-      (i) =>
-        i.stone_id === stoneId &&
-        i.quantity_available > 0 &&
-        i.status === "available"
-    );
-  }
-
-  function defaultPricePerM3(invId: string): number | null {
-    if (!customerId || !invId) return null;
+  /** מחיר לקו״ב בשורת הזמנה — מחיר קו״ב ללקוח מהסכם קטלוג (אבן) אם קיים, אחרת מחיר ללקוח של המשלוח */
+  function effectiveLinePricePerM3(invId: string): number | null {
+    if (!invId) return null;
     const invRow = inventory.find((i) => i.id === invId);
     if (!invRow) return null;
-    const ov = overrides.find(
-      (o) =>
-        o.customer_id === customerId && o.inventory_item_id === invId
-    );
-    const base = ov?.price_per_m3 ?? invRow.price_per_m3;
-    return Number(base);
+    if (customerId) {
+      const ov = overrides.find(
+        (o) =>
+          o.customer_id === customerId && o.stone_id === invRow.stone_id
+      );
+      if (ov?.price_per_m3 != null) return Number(ov.price_per_m3);
+    }
+    return Number(invRow.customer_price);
+  }
+
+  function inventoryForStone(stoneId: string) {
+    return inventory
+      .filter(
+        (i) =>
+          i.stone_id === stoneId &&
+          i.quantity_available > 0 &&
+          i.status === "available"
+      )
+      .sort((a, b) => a.id.localeCompare(b.id));
   }
 
   function updateLine(key: string, patch: Partial<Line>) {
@@ -130,11 +136,11 @@ export function OrderForm({
         if (patch.inventory_item_id != null && patch.inventory_item_id !== ln.inventory_item_id) {
           const invRow = inventory.find((i) => i.id === patch.inventory_item_id);
           if (invRow) {
-            next.length_m = String(invRow.length_m);
-            next.width_m = String(invRow.width_m);
-            next.height_m = String(invRow.height_m);
-            const dp = defaultPricePerM3(invRow.id);
-            if (dp != null) next.price_per_m3 = String(dp);
+            next.length_cm = metersToCmInput(Number(invRow.length_m));
+            next.width_cm = metersToCmInput(Number(invRow.width_m));
+            next.height_cm = metersToCmInput(Number(invRow.height_m));
+            const dp = effectiveLinePricePerM3(invRow.id);
+            if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
           }
         }
         if (
@@ -142,10 +148,15 @@ export function OrderForm({
           patch.stone_id !== ln.stone_id
         ) {
           next.inventory_item_id = "";
-          next.length_m = "";
-          next.width_m = "";
-          next.height_m = "";
+          next.length_cm = "";
+          next.width_cm = "";
+          next.height_cm = "";
           next.price_per_m3 = "";
+          const opts = inventoryForStone(patch.stone_id);
+          if (opts.length > 0) {
+            const dp = effectiveLinePricePerM3(opts[0].id);
+            if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
+          }
         }
         return next;
       })
@@ -155,13 +166,18 @@ export function OrderForm({
   const totalsPreview = useMemo(() => {
     let subtotalEx = 0;
     for (const ln of lines) {
-      const L = parseFloat(ln.length_m.replace(",", ".")) || 0;
-      const W = parseFloat(ln.width_m.replace(",", ".")) || 0;
-      const H = parseFloat(ln.height_m.replace(",", ".")) || 0;
+      const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
+      const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
+      const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
       const Q = parseInt(ln.quantity.replace(",", "."), 10) || 0;
       const p = parseFloat(ln.price_per_m3.replace(",", ".")) || 0;
       if (!L || !W || !H || !Q || !p) continue;
-      const vol = computeVolumeM3({ lengthM: L, widthM: W, heightM: H, quantity: Q });
+      const vol = computeVolumeM3FromCm({
+        lengthCm: L,
+        widthCm: W,
+        heightCm: H,
+        quantity: Q,
+      });
       const priceEx = vatIncluded
         ? pricePerM3ExVatFromInclusive(p, VAT_RATE)
         : p;
@@ -183,15 +199,20 @@ export function OrderForm({
 
     const items = lines
       .filter((ln) => ln.stone_id && ln.inventory_item_id)
-      .map((ln) => ({
-        stone_id: ln.stone_id,
-        inventory_item_id: ln.inventory_item_id,
-        length_m: parseFloat(ln.length_m.replace(",", ".")),
-        width_m: parseFloat(ln.width_m.replace(",", ".")),
-        height_m: parseFloat(ln.height_m.replace(",", ".")),
-        quantity: parseInt(ln.quantity.replace(",", "."), 10),
-        price_per_m3: parseFloat(ln.price_per_m3.replace(",", ".")),
-      }));
+      .map((ln) => {
+        const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
+        const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
+        const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
+        return {
+          stone_id: ln.stone_id,
+          inventory_item_id: ln.inventory_item_id,
+          length_m: L / 100,
+          width_m: W / 100,
+          height_m: H / 100,
+          quantity: parseInt(ln.quantity.replace(",", "."), 10),
+          price_per_m3: parseFloat(ln.price_per_m3.replace(",", ".")),
+        };
+      });
 
     const res = await createOrder({
       customer_id: customerId,
@@ -306,9 +327,9 @@ export function OrderForm({
                     key: newLineKey(),
                     stone_id: "",
                     inventory_item_id: "",
-                    length_m: "",
-                    width_m: "",
-                    height_m: "",
+                    length_cm: "",
+                    width_cm: "",
+                    height_cm: "",
                     quantity: "1",
                     price_per_m3: "",
                   },
@@ -323,13 +344,20 @@ export function OrderForm({
             const invOptions = ln.stone_id
               ? inventoryForStone(ln.stone_id)
               : [];
-            const L = parseFloat(ln.length_m.replace(",", ".")) || 0;
-            const W = parseFloat(ln.width_m.replace(",", ".")) || 0;
-            const H = parseFloat(ln.height_m.replace(",", ".")) || 0;
+            const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
+            const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
+            const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
             const Q = parseInt(ln.quantity.replace(",", "."), 10) || 0;
             const p = parseFloat(ln.price_per_m3.replace(",", ".")) || 0;
             const vol =
-              L && W && H && Q ? computeVolumeM3({ lengthM: L, widthM: W, heightM: H, quantity: Q }) : null;
+              L && W && H && Q
+                ? computeVolumeM3FromCm({
+                    lengthCm: L,
+                    widthCm: W,
+                    heightCm: H,
+                    quantity: Q,
+                  })
+                : null;
             const priceEx =
               vol != null && p
                 ? vatIncluded
@@ -410,33 +438,34 @@ export function OrderForm({
                   </Field>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-4">
-                  <Field label="אורך">
+                <Field label="גובה / עובי (ס״מ)">
                     <Input
                       dir="ltr"
                       inputMode="decimal"
-                      value={ln.length_m}
+                      value={ln.height_cm}
                       onChange={(e) =>
-                        updateLine(ln.key, { length_m: e.target.value })
+                        updateLine(ln.key, { height_cm: e.target.value })
                       }
                     />
                   </Field>
-                  <Field label="רוחב">
+                  <Field label="רוחב (ס״מ)">
                     <Input
                       dir="ltr"
                       inputMode="decimal"
-                      value={ln.width_m}
+                      value={ln.width_cm}
                       onChange={(e) =>
-                        updateLine(ln.key, { width_m: e.target.value })
+                        updateLine(ln.key, { width_cm: e.target.value })
                       }
                     />
                   </Field>
-                  <Field label="גובה">
+
+                  <Field label="אורך (ס״מ)">
                     <Input
                       dir="ltr"
                       inputMode="decimal"
-                      value={ln.height_m}
+                      value={ln.length_cm}
                       onChange={(e) =>
-                        updateLine(ln.key, { height_m: e.target.value })
+                        updateLine(ln.key, { length_cm: e.target.value })
                       }
                     />
                   </Field>

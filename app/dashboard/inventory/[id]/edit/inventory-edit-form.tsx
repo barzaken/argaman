@@ -23,7 +23,10 @@ import type {
   StoneRow,
 } from "@/lib/db/types";
 import { formatIls } from "@/lib/db/format";
-import { computeVolumeM3 } from "@/lib/db/calculations";
+import {
+  computeVolumeM3FromCm,
+  metersToCmInput,
+} from "@/lib/db/calculations";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "available", label: "זמין" },
@@ -208,9 +211,9 @@ export function InventoryEditForm({
 }) {
   const router = useRouter();
   const stone = stones.find((s) => s.id === row.stone_id);
-  const [lengthM, setLengthM] = useState(String(row.length_m));
-  const [widthM, setWidthM] = useState(String(row.width_m));
-  const [heightM, setHeightM] = useState(String(row.height_m));
+  const [lengthCm, setLengthCm] = useState(metersToCmInput(Number(row.length_m)));
+  const [widthCm, setWidthCm] = useState(metersToCmInput(Number(row.width_m)));
+  const [heightCm, setHeightCm] = useState(metersToCmInput(Number(row.height_m)));
   const [quantity, setQuantity] = useState(String(row.quantity_total));
   const [pricePerM3, setPricePerM3] = useState(String(row.price_per_m3));
   const [customerPrice, setCustomerPrice] = useState(String(row.customer_price));
@@ -222,13 +225,18 @@ export function InventoryEditForm({
   const [pending, setPending] = useState(false);
 
   const volumePreview = useMemo(() => {
-    const L = parseFloat(lengthM.replace(",", ".")) || 0;
-    const W = parseFloat(widthM.replace(",", ".")) || 0;
-    const H = parseFloat(heightM.replace(",", ".")) || 0;
+    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
+    const W = parseFloat(widthCm.replace(",", ".")) || 0;
+    const H = parseFloat(heightCm.replace(",", ".")) || 0;
     const Q = parseInt(quantity.replace(",", "."), 10) || 0;
     if (!L || !W || !H || !Q) return null;
-    return computeVolumeM3({ lengthM: L, widthM: W, heightM: H, quantity: Q });
-  }, [lengthM, widthM, heightM, quantity]);
+    return computeVolumeM3FromCm({
+      lengthCm: L,
+      widthCm: W,
+      heightCm: H,
+      quantity: Q,
+    });
+  }, [lengthCm, widthCm, heightCm, quantity]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -237,9 +245,12 @@ export function InventoryEditForm({
     const fd = new FormData();
     fd.set("id", row.id);
     fd.set("stone_id", row.stone_id);
-    fd.set("length_m", lengthM.replace(",", "."));
-    fd.set("width_m", widthM.replace(",", "."));
-    fd.set("height_m", heightM.replace(",", "."));
+    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
+    const W = parseFloat(widthCm.replace(",", ".")) || 0;
+    const H = parseFloat(heightCm.replace(",", ".")) || 0;
+    fd.set("length_m", String(L / 100));
+    fd.set("width_m", String(W / 100));
+    fd.set("height_m", String(H / 100));
     fd.set("quantity_total", quantity);
     fd.set("price_per_m3", pricePerM3.replace(",", "."));
     fd.set("customer_price", customerPrice.replace(",", "."));
@@ -300,32 +311,33 @@ export function InventoryEditForm({
               className="flex-none justify-start py-6 lg:pt-2"
             >
               <div className="grid w-full gap-4 sm:grid-cols-3">
-                <Field label="אורך (מ׳)">
+                <Field label="גובה / עובי (ס״מ)">
                   <Input
                     dir="ltr"
                     inputMode="decimal"
-                    value={lengthM}
-                    onChange={(e) => setLengthM(e.target.value)}
+                    value={heightCm}
+                    onChange={(e) => setHeightCm(e.target.value)}
                     step="any"
                     required
                   />
                 </Field>
-                <Field label="רוחב (מ׳)">
+                <Field label="רוחב (ס״מ)">
                   <Input
                     dir="ltr"
                     inputMode="decimal"
-                    value={widthM}
-                    onChange={(e) => setWidthM(e.target.value)}
+                    value={widthCm}
+                    onChange={(e) => setWidthCm(e.target.value)}
                     step="any"
                     required
                   />
                 </Field>
-                <Field label="גובה (מ׳)">
+
+                <Field label="אורך (ס״מ)">
                   <Input
                     dir="ltr"
                     inputMode="decimal"
-                    value={heightM}
-                    onChange={(e) => setHeightM(e.target.value)}
+                    value={lengthCm}
+                    onChange={(e) => setLengthCm(e.target.value)}
                     step="any"
                     required
                   />
@@ -348,9 +360,9 @@ export function InventoryEditForm({
                   <div className="flex h-8 items-center rounded-lg border border-dashed border-border bg-muted/40 px-2.5 tabular-nums text-sm font-medium">
                     {volumePreview != null
                       ? new Intl.NumberFormat("he-IL", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        }).format(volumePreview)
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
+                      }).format(volumePreview)
                       : "—"}
                   </div>
                 </Field>

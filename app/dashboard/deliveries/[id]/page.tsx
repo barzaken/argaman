@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import type { DeliveryItemRow } from "@/lib/db/types";
 import type { DeliveryViewRow } from "@/lib/db/types";
-import { formatIls, formatVolumeM3 } from "@/lib/db/format";
+import { formatIls, formatIssueDate, formatVolumeM3 } from "@/lib/db/format";
 
 export default async function DeliveryDetailPage({
   params,
@@ -40,6 +40,11 @@ export default async function DeliveryDetailPage({
 
   const lines = (items ?? []) as DeliveryItemRow[];
 
+  const shippingAddressDisplay =
+    d.fulfillment_method === "shipping"
+      ? (d.shipping_address ?? "—")
+      : "איסוף עצמי (ללא כתובת משלוח)";
+
   return (
     <div className="flex flex-1 flex-col gap-6 overflow-auto p-4 md:p-6">
       <div className="mx-auto flex w-full max-w-[min(100%,80rem)] flex-col gap-6">
@@ -49,12 +54,7 @@ export default async function DeliveryDetailPage({
               תעודת משלוח #{d.delivery_number}
             </h2>
             <p className="text-muted-foreground text-sm">
-              הזמנה #{d.order_number} · {d.customer_name}
-            </p>
-            <p className="mt-2 text-sm">
-              אספקה:{" "}
-              {d.fulfillment_method === "shipping" ? "שילוח" : "איסוף"}
-              {d.shipping_address ? ` · ${d.shipping_address}` : ""}
+              הזמנה #{d.order_number}
             </p>
             <p className="text-sm tabular-nums">
               סכום כולל מע״מ:{" "}
@@ -79,6 +79,52 @@ export default async function DeliveryDetailPage({
             </Button>
           </div>
         </div>
+
+        <section
+          className="rounded-md border bg-card p-4"
+          aria-label="פרטי תעודת ההזמנה"
+        >
+          <h3 className="text-base font-semibold text-foreground">
+            תעודת הזמנה
+          </h3>
+          <p className="text-muted-foreground text-sm">
+            הזמנה מס׳ {d.order_number}
+          </p>
+          <dl className="mt-4 space-y-3 text-sm">
+            <div>
+              <dt className="text-muted-foreground">
+                לקוח (שם העסק.לקוח)
+              </dt>
+              <dd className="mt-0.5 font-medium text-foreground">
+                {d.customer_name}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">ח.פ / ת.ז</dt>
+              <dd className="mt-0.5 font-medium text-foreground tabular-nums">
+                {d.customer_tax_id ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">כתובת משלוח</dt>
+              <dd className="mt-0.5 font-medium text-foreground">
+                {shippingAddressDisplay}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">מספר טלפון</dt>
+              <dd className="mt-0.5 font-medium text-foreground tabular-nums">
+                {d.customer_phone ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">תאריך הנפקה</dt>
+              <dd className="mt-0.5 font-medium text-foreground">
+                {formatIssueDate(d.created_at)}
+              </dd>
+            </div>
+          </dl>
+        </section>
 
         <div className="overflow-hidden rounded-md border bg-card">
           <Table>

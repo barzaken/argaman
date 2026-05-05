@@ -66,12 +66,12 @@ export type InventoryItemViewRow = {
   created_at?: string;
 };
 
-export type CustomerInventoryPriceRow = {
+/** מחיר קו״ב ללקוח לפי מוצר בקטלוג (אבן) */
+export type CustomerStonePriceRow = {
   id: string;
   customer_id: string;
-  inventory_item_id: string;
-  price_per_m3: number | null;
-  customer_price: number | null;
+  stone_id: string;
+  price_per_m3: number;
 };
 
 export type OrderRow = {
@@ -87,6 +87,8 @@ export type OrderRow = {
   subtotal: number;
   vat_amount: number;
   total: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type OrderViewRow = OrderRow & {
@@ -138,9 +140,12 @@ export type DeliveryViewRow = {
   subtotal: number;
   vat_amount: number;
   total: number;
+  created_at: string;
+  updated_at: string;
   order_number: number;
   order_signature_url: string | null;
   customer_name: string;
+  customer_tax_id: string;
   customer_phone: string | null;
   customer_email: string | null;
 };

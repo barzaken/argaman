@@ -127,12 +127,11 @@ export async function archiveCustomer(id: string): Promise<ActionResult> {
 
 const priceOverrideSchema = z.object({
   customer_id: z.string().uuid(),
-  inventory_item_id: z.string().uuid(),
-  price_per_m3: z.coerce.number().positive().optional().nullable(),
-  customer_price: z.coerce.number().positive().optional().nullable(),
+  stone_id: z.string().uuid(),
+  price_per_m3: z.coerce.number().positive(),
 });
 
-export async function upsertCustomerInventoryPrice(
+export async function upsertCustomerStonePrice(
   formData: FormData
 ): Promise<ActionResult> {
   const auth = await requireAuth();
@@ -140,9 +139,8 @@ export async function upsertCustomerInventoryPrice(
 
   const parsed = priceOverrideSchema.safeParse({
     customer_id: formData.get("customer_id"),
-    inventory_item_id: formData.get("inventory_item_id"),
+    stone_id: formData.get("stone_id"),
     price_per_m3: formData.get("price_per_m3"),
-    customer_price: formData.get("customer_price"),
   });
 
   if (!parsed.success) {
@@ -152,28 +150,13 @@ export async function upsertCustomerInventoryPrice(
     };
   }
 
-  const pM3 =
-    parsed.data.price_per_m3 != null && !Number.isNaN(parsed.data.price_per_m3)
-      ? parsed.data.price_per_m3
-      : null;
-  const cP =
-    parsed.data.customer_price != null &&
-    !Number.isNaN(parsed.data.customer_price)
-      ? parsed.data.customer_price
-      : null;
-
-  if (pM3 == null && cP == null) {
-    return { ok: false, message: "נא למלא לפחות מחיר אחד" };
-  }
-
-  const { error } = await auth.supabase.from("customer_inventory_prices").upsert(
+  const { error } = await auth.supabase.from("customer_stone_prices").upsert(
     {
       customer_id: parsed.data.customer_id,
-      inventory_item_id: parsed.data.inventory_item_id,
-      price_per_m3: pM3,
-      customer_price: cP,
+      stone_id: parsed.data.stone_id,
+      price_per_m3: parsed.data.price_per_m3,
     },
-    { onConflict: "customer_id,inventory_item_id" }
+    { onConflict: "customer_id,stone_id" }
   );
 
   if (error) return { ok: false, message: error.message };
@@ -182,7 +165,7 @@ export async function upsertCustomerInventoryPrice(
   return { ok: true };
 }
 
-export async function deleteCustomerInventoryPrice(
+export async function deleteCustomerStonePrice(
   customerId: string,
   rowId: string
 ): Promise<ActionResult> {
@@ -193,7 +176,7 @@ export async function deleteCustomerInventoryPrice(
   if (!idParsed.success) return { ok: false, message: "מזהה לא תקין" };
 
   const { error } = await auth.supabase
-    .from("customer_inventory_prices")
+    .from("customer_stone_prices")
     .delete()
     .eq("id", idParsed.data)
     .eq("customer_id", customerId);
