@@ -11,9 +11,33 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import type { OrderItemViewRow } from "@/lib/db/types";
-import type { OrderViewRow } from "@/lib/db/types";
+import type { OrderItemViewRow, OrderViewRow, PriorityDb } from "@/lib/db/types";
 import { formatIls, formatVolumeM3 } from "@/lib/db/format";
+
+const orderStatusLabels: Record<OrderViewRow["status"], string> = {
+  open: "פתוחה",
+  in_production: "בייצור",
+  ready_for_delivery: "מוכנה למשלוח",
+  completed: "הושלמה",
+  cancelled: "בוטלה",
+};
+
+const priorityLabels: Record<PriorityDb, string> = {
+  low: "נמוך",
+  medium: "בינוני",
+  urgent: "דחוף",
+};
+
+function priorityDotClass(priority: PriorityDb): string {
+  switch (priority) {
+    case "urgent":
+      return "bg-destructive";
+    case "medium":
+      return "bg-amber-500 dark:bg-amber-400";
+    case "low":
+      return "bg-muted-foreground";
+  }
+}
 
 export default async function OrderDetailPage({
   params,
@@ -50,7 +74,14 @@ export default async function OrderDetailPage({
             </h2>
             <p className="text-muted-foreground text-sm">{o.customer_name}</p>
             <p className="text-muted-foreground text-sm">
-              סטטוס: {o.status} · תעדוף: {o.priority}
+              סטטוס: {orderStatusLabels[o.status]} · תעדוף:{ " "}
+              <span className="inline-flex items-center gap-1.5 align-middle">
+                <span
+                  className={`size-1.5 shrink-0 rounded-full ${priorityDotClass(o.priority)}`}
+                  aria-hidden
+                />
+                <span>{priorityLabels[o.priority]}</span>
+              </span>
             </p>
             <p className="mt-2 text-sm tabular-nums">
               סכום כולל מע״מ:{" "}

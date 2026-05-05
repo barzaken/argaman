@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -15,7 +16,13 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import type { InventoryItemViewRow, StoneRow } from "@/lib/db/types";
+import type {
+  InventoryItemViewRow,
+  OrderItemViewRow,
+  OrderStatusDb,
+  StoneRow,
+} from "@/lib/db/types";
+import { formatIls } from "@/lib/db/format";
 import { computeVolumeM3 } from "@/lib/db/calculations";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
@@ -23,6 +30,131 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "unavailable", label: "לא זמין" },
   { value: "in_transit", label: "בדרך" },
 ];
+
+const orderStatusLabels: Record<OrderStatusDb, string> = {
+  open: "פתוחה",
+  in_production: "בייצור",
+  ready_for_delivery: "מוכנה למשלוח",
+  completed: "הושלמה",
+  cancelled: "בוטלה",
+};
+
+function InventoryOrdersPanel({
+  deliveryQuantityTotal,
+  orderItemRows,
+}: {
+  deliveryQuantityTotal: number;
+  orderItemRows: OrderItemViewRow[];
+}) {
+  const ordersAggregated = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        orderId: string;
+        orderNumber: number;
+        status: OrderStatusDb;
+        customerName: string;
+        qtyFromShipment: number;
+        linesSubtotal: number;
+      }
+    >();
+    for (const oi of orderItemRows) {
+      const cur = map.get(oi.order_id);
+      if (cur) {
+        cur.qtyFromShipment += oi.quantity;
+        cur.linesSubtotal += oi.line_subtotal;
+      } else {
+        map.set(oi.order_id, {
+          orderId: oi.order_id,
+          orderNumber: oi.order_number,
+          status: oi.order_status,
+          customerName: oi.customer_name,
+          qtyFromShipment: oi.quantity,
+          linesSubtotal: oi.line_subtotal,
+        });
+      }
+    }
+    return [...map.values()].sort((a, b) => b.orderNumber - a.orderNumber);
+  }, [orderItemRows]);
+
+  const denom =
+    deliveryQuantityTotal > 0 ? deliveryQuantityTotal : 0;
+
+  return (
+    <div
+      dir="rtl"
+      className="flex h-full min-h-0 flex-1 flex-col px-2 pb-2 pt-4 md:px-4 lg:pb-4 lg:pt-6"
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="inline-flex h-9 w-fit shrink-0 items-center rounded-lg bg-muted p-1 text-muted-foreground">
+          <span className="inline-flex items-center justify-center rounded-md bg-background px-3 py-1 text-sm font-medium text-foreground shadow-sm ring-1 ring-border/50">
+            הזמנות
+          </span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border bg-muted/30 p-2">
+          <ul className="flex flex-col gap-2">
+            {ordersAggregated.map((o) => {
+              const pct =
+                denom > 0
+                  ? Math.min(100, Math.round((o.qtyFromShipment / denom) * 100))
+                  : 0;
+              return (
+                <li key={o.orderId}>
+                  <Link
+                    href={`/dashboard/orders/${o.orderId}`}
+                    className="flex flex-col gap-2 rounded-lg border border-transparent bg-background p-3 text-start transition-colors hover:border-border hover:bg-muted/40"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-medium tabular-nums">
+                        הזמנה #{o.orderNumber}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {orderStatusLabels[o.status]}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {o.customerName}
+                    </p>
+                    <p className="text-muted-foreground text-xs tabular-nums">
+                      {formatIls(o.linesSubtotal)}
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
+                        <span>
+                          מהמשלוח: {o.qtyFromShipment} / {denom || "—"}
+                        </span>
+                        {denom > 0 ? <span>{pct}%</span> : null}
+                      </div>
+                      {denom > 0 ? (
+                        <div
+                          className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                          role="progressbar"
+                          aria-valuenow={pct}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                        >
+                          <div
+                            className="h-full bg-primary transition-[width]"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {ordersAggregated.length === 0 ? (
+            <p className="text-muted-foreground py-8 text-center text-sm">
+              אין הזמנות המקושרות למשלוח זה
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Field({
   label,
@@ -68,9 +200,11 @@ function Section({
 export function InventoryEditForm({
   row,
   stones,
+  orderItemRows,
 }: {
   row: InventoryItemViewRow;
   stones: StoneRow[];
+  orderItemRows: OrderItemViewRow[];
 }) {
   const router = useRouter();
   const stone = stones.find((s) => s.id === row.stone_id);
@@ -154,7 +288,7 @@ export function InventoryEditForm({
                 <p className="text-muted-foreground text-sm">אבן לא נמצאה</p>
               )}
               <p className="text-muted-foreground text-xs">
-                זמין למזימון: {row.quantity_reserved} · סופק:{" "}
+                בהזמנה : {row.quantity_reserved} · סופק:{" "}
                 {row.quantity_delivered}
               </p>
             </Section>
@@ -252,10 +386,12 @@ export function InventoryEditForm({
             </Section>
           </div>
 
-          <div
-            className="hidden min-h-0 shrink-0 lg:block lg:flex-1"
-            aria-hidden
-          />
+          <div className="flex min-h-[min(40vh,24rem)] flex-1 flex-col border-t border-border lg:min-h-0 lg:border-t-0">
+            <InventoryOrdersPanel
+              deliveryQuantityTotal={row.quantity_total}
+              orderItemRows={orderItemRows}
+            />
+          </div>
         </div>
 
         <div className="sticky bottom-0 z-10 flex shrink-0 flex-col gap-3 border-t border-border bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:flex-row md:items-end md:justify-between md:px-8">

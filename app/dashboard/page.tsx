@@ -3,9 +3,37 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { KpiCard } from "@/components/kpi-card";
 import { createClient } from "@/lib/supabase/server";
-import type { DashboardKpisRow } from "@/lib/db/types";
-import type { InventoryItemViewRow } from "@/lib/db/types";
-import type { OrderItemViewRow } from "@/lib/db/types";
+import type {
+  DashboardKpisRow,
+  InventoryItemViewRow,
+  OrderItemStatusDb,
+  OrderItemViewRow,
+  PriorityDb,
+} from "@/lib/db/types";
+
+const orderItemStatusLabels: Record<OrderItemStatusDb, string> = {
+  pending: "ממתין",
+  in_progress: "בייצור",
+  completed: "הושלם",
+  cancelled: "בוטל",
+};
+
+const priorityLabels: Record<PriorityDb, string> = {
+  low: "נמוך",
+  medium: "בינוני",
+  urgent: "דחוף",
+};
+
+function priorityDotClass(priority: PriorityDb): string {
+  switch (priority) {
+    case "urgent":
+      return "bg-destructive";
+    case "medium":
+      return "bg-amber-500 dark:bg-amber-400";
+    case "low":
+      return "bg-muted-foreground";
+  }
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -126,7 +154,14 @@ export default async function DashboardPage() {
                   </div>
                   <p className="text-muted-foreground text-sm">{it.stone_name}</p>
                   <p className="text-muted-foreground text-xs">
-                    סטטוס פריט: {it.status} · תעדוף הזמנה: {it.order_priority}
+                    סטטוס : {orderItemStatusLabels[it.status]} · תעדוף הזמנה:{ " "}
+                    <span className="inline-flex items-center gap-1.5 align-middle">
+                      <span
+                        className={`size-1.5 shrink-0 rounded-full ${priorityDotClass(it.order_priority)}`}
+                        aria-hidden
+                      />
+                      <span>{priorityLabels[it.order_priority]}</span>
+                    </span>
                   </p>
                 </Link>
               </li>
