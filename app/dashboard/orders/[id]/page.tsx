@@ -98,7 +98,7 @@ export default async function OrderDetailPage({
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/dashboard/orders/${id}/edit`}>עריכת כותרת</Link>
+              <Link href={`/dashboard/orders/${id}/edit`}>עריכה</Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard/orders">חזרה</Link>

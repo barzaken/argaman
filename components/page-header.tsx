@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, Plus } from "lucide-react";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -42,7 +42,7 @@ export function PageHeader({ className }: { className?: string }) {
       </h1>
       {showCta ? (
         <Button size="sm" className="shrink-0" asChild>
-          <Link href={meta.headerCtaHref!}>{meta.ctaLabel}</Link>
+          <Link href={meta.headerCtaHref!}><Plus />{meta.ctaLabel}</Link>
         </Button>
       ) : null}
     </header>
