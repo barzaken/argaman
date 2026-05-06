@@ -45,7 +45,7 @@ export default async function DashboardPage() {
   const openOrdersCount = Number(kpi?.open_orders_count ?? 0);
   const unpaidDeliveriesCount = Number(kpi?.unpaid_deliveries_count ?? 0);
   const receivablesTotal = Math.round(Number(kpi?.receivables_total ?? 0));
-  const receivablesWeek = Math.round(Number(kpi?.receivables_due_week ?? 0));
+  const monthlyRevenue = Math.round(Number(kpi?.monthly_revenue ?? 0));
 
   const catalog = (catalogStones ?? []) as StoneRow[];
   const todos = (todoItems ?? []) as OrderItemViewRow[];
@@ -70,8 +70,8 @@ export default async function DashboardPage() {
           valueType="currency"
         />
         <KpiCard
-          label="לגבייה השבוע"
-          value={receivablesWeek}
+          label="הכנסות החודש"
+          value={monthlyRevenue}
           icon="circle-dollar-sign"
           valueType="currency"
         />
@@ -103,7 +103,6 @@ export default async function DashboardPage() {
                         </Badge>
                       ) : null}
                     </div>
-                    <p className="text-muted-foreground text-xs">{row.polish_type}</p>
                   </div>
                 </Link>
               </li>

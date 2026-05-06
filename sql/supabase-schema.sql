@@ -7,6 +7,8 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ENUMs
 -- -----------------------------------------------------------------------------
 CREATE TYPE inventory_status AS ENUM ('available', 'unavailable', 'in_transit');
+CREATE TYPE inventory_finish_level AS ENUM ('halak', 'tuboza', 'masmesm');
+CREATE TYPE inventory_piece_type AS ENUM ('panel', 'frame', 'plate');
 CREATE TYPE order_status AS ENUM ('open', 'in_production', 'ready_for_delivery', 'completed', 'cancelled');
 CREATE TYPE order_item_status AS ENUM ('pending', 'in_progress', 'completed', 'cancelled');
 CREATE TYPE priority AS ENUM ('low', 'medium', 'urgent');
@@ -35,7 +37,6 @@ CREATE SEQUENCE IF NOT EXISTS delivery_number_seq START WITH 1000 INCREMENT BY 1
 CREATE TABLE public.stones (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
-  polish_type text NOT NULL,
   color_hex text NOT NULL,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -43,8 +44,8 @@ CREATE TABLE public.stones (
   CONSTRAINT stones_color_hex_chk CHECK (color_hex ~ '^#[0-9A-Fa-f]{6}$')
 );
 
-CREATE UNIQUE INDEX stones_active_name_polish_unique
-  ON public.stones (name, polish_type)
+CREATE UNIQUE INDEX stones_active_name_unique
+  ON public.stones (name)
   WHERE is_active = true;
 
 CREATE TRIGGER stones_set_updated_at
@@ -84,6 +85,8 @@ CREATE TABLE public.inventory_items (
   price_per_m3 numeric(12,2) NOT NULL,
   customer_price numeric(12,2) NOT NULL,
   status inventory_status NOT NULL DEFAULT 'available',
+  finish_level inventory_finish_level NOT NULL DEFAULT 'halak',
+  piece_type inventory_piece_type NOT NULL DEFAULT 'panel',
   expected_arrival_date date,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -226,7 +229,6 @@ CREATE TABLE public.delivery_items (
   stone_id uuid NOT NULL REFERENCES public.stones(id),
   inventory_item_id uuid NOT NULL REFERENCES public.inventory_items(id),
   stone_name text NOT NULL,
-  polish_type text NOT NULL,
   color_hex text NOT NULL,
   length_m numeric(10,3) NOT NULL,
   width_m numeric(10,3) NOT NULL,
@@ -247,7 +249,6 @@ CREATE OR REPLACE VIEW public.inventory_items_view AS
 SELECT
   i.*,
   s.name AS stone_name,
-  s.polish_type,
   s.color_hex,
   (i.quantity_total - i.quantity_reserved - i.quantity_delivered) AS quantity_available
 FROM public.inventory_items i
@@ -274,7 +275,6 @@ SELECT
   o.status AS order_status,
   c.name AS customer_name,
   s.name AS stone_name,
-  s.polish_type,
   s.color_hex AS stone_color_hex,
   inv.volume_m3 AS inventory_shipment_volume_m3
 FROM public.order_items oi
@@ -314,7 +314,9 @@ JOIN public.customers c ON c.id = d.customer_id
 JOIN public.orders o ON o.id = d.order_id
 WHERE d.payment_status = 'unpaid'::payment_status;
 
-CREATE OR REPLACE VIEW public.dashboard_kpis_view AS
+-- DROP + CREATE: Postgres rejects CREATE OR REPLACE when output column names change (42P16).
+DROP VIEW IF EXISTS public.dashboard_kpis_view;
+CREATE VIEW public.dashboard_kpis_view AS
 SELECT
   (
     SELECT COUNT(*)::bigint
@@ -336,12 +338,13 @@ SELECT
     WHERE d.payment_status = 'unpaid'::payment_status
   ) AS receivables_total,
   (
-    SELECT COALESCE(SUM(d.total), 0)::numeric
-    FROM public.deliveries d
-    WHERE d.payment_status = 'unpaid'::payment_status
-      AND d.payment_due_date IS NOT NULL
-      AND d.payment_due_date <= (CURRENT_DATE + interval '7 days')::date
-  ) AS receivables_due_week;
+    SELECT COALESCE(SUM(o.total), 0)::numeric
+    FROM public.orders o
+    WHERE (o.created_at AT TIME ZONE 'Asia/Jerusalem')::date
+      >= date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jerusalem'))::date
+      AND (o.created_at AT TIME ZONE 'Asia/Jerusalem')::date
+      < (date_trunc('month', (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jerusalem')) + interval '1 month')::date
+  ) AS monthly_revenue;
 
 -- -----------------------------------------------------------------------------
 -- RPC: create order + reserve inventory (atomic)
@@ -551,7 +554,6 @@ BEGIN
     SELECT
       oi2.*,
       s.name AS stone_name,
-      s.polish_type,
       s.color_hex
     FROM public.order_items oi2
     JOIN public.stones s ON s.id = oi2.stone_id
@@ -563,7 +565,6 @@ BEGIN
       stone_id,
       inventory_item_id,
       stone_name,
-      polish_type,
       color_hex,
       length_m,
       width_m,
@@ -578,7 +579,6 @@ BEGIN
       oi.stone_id,
       oi.inventory_item_id,
       oi.stone_name,
-      oi.polish_type,
       oi.color_hex,
       oi.length_m,
       oi.width_m,

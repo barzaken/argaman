@@ -21,7 +21,7 @@ export default async function EditStonePage({
     supabase
       .from("inventory_items_view")
       .select(
-        "id, quantity_available, quantity_total, quantity_reserved, status, volume_m3, length_m, width_m, height_m, created_at"
+        "id, quantity_available, quantity_total, quantity_reserved, status, finish_level, piece_type, volume_m3, length_m, width_m, height_m, created_at"
       )
       .eq("stone_id", id)
       .order("created_at", { ascending: false }),
@@ -53,6 +53,8 @@ export default async function EditStonePage({
     | "quantity_total"
     | "quantity_reserved"
     | "status"
+    | "finish_level"
+    | "piece_type"
     | "volume_m3"
     | "length_m"
     | "width_m"
@@ -65,7 +67,6 @@ export default async function EditStonePage({
       stone={{
         id: stone.id as string,
         name: stone.name as string,
-        polish_type: stone.polish_type as string,
         color_hex: stone.color_hex as string,
       }}
       inventoryRows={inventoryForStone}

@@ -1,6 +1,12 @@
 /** Row shapes aligned with Supabase public schema / views (snake_case) */
 
 export type InventoryStatusDb = "available" | "unavailable" | "in_transit";
+
+/** רמת גימור (משלוח מלאי) */
+export type InventoryFinishLevelDb = "halak" | "tuboza" | "masmesm";
+
+/** סוג חלק: פאנל / מסגרת / פלטה */
+export type InventoryPieceTypeDb = "panel" | "frame" | "plate";
 export type OrderStatusDb =
   | "open"
   | "in_production"
@@ -30,7 +36,6 @@ export type PaymentMethodDb =
 export type StoneRow = {
   id: string;
   name: string;
-  polish_type: string;
   color_hex: string;
   is_active: boolean;
 };
@@ -59,9 +64,10 @@ export type InventoryItemViewRow = {
   price_per_m3: number;
   customer_price: number;
   status: InventoryStatusDb;
+  finish_level: InventoryFinishLevelDb;
+  piece_type: InventoryPieceTypeDb;
   expected_arrival_date: string | null;
   stone_name: string;
-  polish_type: string;
   color_hex: string;
   created_at?: string;
 };
@@ -119,7 +125,6 @@ export type OrderItemViewRow = {
   order_status: OrderStatusDb;
   customer_name: string;
   stone_name: string;
-  polish_type: string;
   stone_color_hex: string;
   inventory_shipment_volume_m3: number;
 };
@@ -157,7 +162,6 @@ export type DeliveryItemRow = {
   stone_id: string;
   inventory_item_id: string;
   stone_name: string;
-  polish_type: string;
   color_hex: string;
   length_m: number;
   width_m: number;
@@ -186,5 +190,5 @@ export type DashboardKpisRow = {
   open_orders_count: number;
   unpaid_deliveries_count: number;
   receivables_total: number;
-  receivables_due_week: number;
+  monthly_revenue: number;
 };

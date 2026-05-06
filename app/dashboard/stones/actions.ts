@@ -12,7 +12,6 @@ export type ActionResult =
 
 const stoneSchema = z.object({
   name: z.string().min(1, "שם חובה"),
-  polish_type: z.string().min(1, "סוג ליטוש חובה"),
   color_hex: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "צבע לא תקין"),
@@ -24,7 +23,6 @@ export async function createStone(formData: FormData): Promise<ActionResult> {
 
   const parsed = stoneSchema.safeParse({
     name: formData.get("name"),
-    polish_type: formData.get("polish_type"),
     color_hex: normalizeHex(String(formData.get("color_hex") ?? "#000000")),
   });
   if (!parsed.success) {
@@ -36,7 +34,6 @@ export async function createStone(formData: FormData): Promise<ActionResult> {
 
   const { error } = await auth.supabase.from("stones").insert({
     name: parsed.data.name.trim(),
-    polish_type: parsed.data.polish_type.trim(),
     color_hex: parsed.data.color_hex,
     is_active: true,
   });
@@ -59,7 +56,6 @@ export async function updateStone(formData: FormData): Promise<ActionResult> {
   const parsed = updateStoneSchema.safeParse({
     id: formData.get("id"),
     name: formData.get("name"),
-    polish_type: formData.get("polish_type"),
     color_hex: normalizeHex(String(formData.get("color_hex") ?? "#000000")),
   });
   if (!parsed.success) {
@@ -73,7 +69,6 @@ export async function updateStone(formData: FormData): Promise<ActionResult> {
     .from("stones")
     .update({
       name: parsed.data.name.trim(),
-      polish_type: parsed.data.polish_type.trim(),
       color_hex: parsed.data.color_hex,
     })
     .eq("id", parsed.data.id);
@@ -101,5 +96,6 @@ export async function archiveStone(id: string): Promise<ActionResult> {
   if (error) return { ok: false, message: error.message };
 
   revalidatePath("/dashboard/stones");
+  revalidatePath("/dashboard");
   return { ok: true };
 }

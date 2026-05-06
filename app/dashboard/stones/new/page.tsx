@@ -6,17 +6,8 @@ import { useState } from "react";
 import { createStone } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { normalizeHex } from "@/lib/db/format";
-
-const POLISH_OPTIONS = ["מבריק", "מט", "למינציה", "מוברש"] as const;
 
 function Field({
   label,
@@ -63,18 +54,15 @@ export default function NewStonePage() {
   const router = useRouter();
   const [colorHex, setColorHex] = useState("#57534e");
   const [stoneName, setStoneName] = useState("");
-  const [polishType, setPolishType] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!polishType) return;
     setPending(true);
     setError(null);
     const fd = new FormData();
     fd.set("name", stoneName);
-    fd.set("polish_type", polishType);
     fd.set("color_hex", normalizeHex(colorHex));
     const res = await createStone(fd);
     setPending(false);
@@ -116,27 +104,6 @@ export default function NewStonePage() {
                 </Field>
               </div>
 
-              <div className="w-full">
-                <Field label="סוג ליטוש">
-                  <Select
-                    dir="rtl"
-                    value={polishType || undefined}
-                    onValueChange={setPolishType}
-                    required
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="בחר סוג ליטוש" />
-                    </SelectTrigger>
-                    <SelectContent dir="rtl">
-                      {POLISH_OPTIONS.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
               {error ? (
                 <p className="text-destructive text-sm" role="alert">
                   {error}

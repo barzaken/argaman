@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorDialog } from "@/components/error-dialog";
 
-import type { InventoryItemViewRow } from "@/lib/db/types";
+import {
+  inventoryFinishLevelLabels,
+  inventoryPieceTypeLabels,
+} from "@/lib/db/inventory-taxonomy";
 import {
   formatIls,
   formatIlsDense,
@@ -15,6 +18,7 @@ import {
   formatVolumeM3,
   normalizeHex,
 } from "@/lib/db/format";
+import type { InventoryItemViewRow } from "@/lib/db/types";
 import { deleteInventoryItem } from "./actions";
 
 export type InventoryRow = InventoryItemViewRow;
@@ -29,7 +33,8 @@ const statusLabels: Record<InventoryRow["status"], string> = {
 export const inventoryColumnLabels: Record<string, string> = {
   color_hex: "צבע",
   stone_name: "שם האבן",
-  polish_type: "סוג ליטוש",
+  finish_level: "רמת גימור",
+  piece_type: "חלק",
   dimensions: "מידות",
   quantity_total: "כמות במשלוח",
   quantity_available: "זמין",
@@ -89,8 +94,15 @@ export const inventoryColumns: ColumnDef<InventoryRow>[] = [
     header: "שם האבן",
   },
   {
-    accessorKey: "polish_type",
-    header: "סוג ליטוש",
+    accessorKey: "finish_level",
+    header: "רמת גימור",
+    cell: ({ row }) =>
+      inventoryFinishLevelLabels[row.original.finish_level],
+  },
+  {
+    accessorKey: "piece_type",
+    header: "חלק",
+    cell: ({ row }) => inventoryPieceTypeLabels[row.original.piece_type],
   },
   {
     id: "dimensions",

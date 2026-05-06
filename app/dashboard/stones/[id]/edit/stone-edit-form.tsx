@@ -8,27 +8,21 @@ import { archiveStone, updateStone } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { inventoryShipmentDescriptor } from "@/lib/db/inventory-taxonomy";
 import {
+  type InventoryFinishLevelDb,
+  type InventoryPieceTypeDb,
   type InventoryStatusDb,
   type OrderStatusDb,
   type OrderViewRow,
 } from "@/lib/db/types";
 import { formatIls, normalizeHex } from "@/lib/db/format";
 import { cn } from "@/lib/utils";
-
-const POLISH_OPTIONS = ["מבריק", "מט", "למינציה", "מוברש"] as const;
 
 const inventoryStatusLabels: Record<InventoryStatusDb, string> = {
   available: "זמין",
@@ -50,6 +44,8 @@ export type StoneInventoryListRow = {
   quantity_total: number;
   quantity_reserved: number;
   status: InventoryStatusDb;
+  finish_level: InventoryFinishLevelDb;
+  piece_type: InventoryPieceTypeDb;
   volume_m3: number;
   length_m: number;
   width_m: number;
@@ -95,7 +91,11 @@ function StoneRelatedTabs({
                     </span>
                   </div>
                   <p className="text-muted-foreground text-xs tabular-nums">
-                    מידות {row.length_m}×{row.width_m}×{row.height_m} מ׳ · סה״כ{" "}
+                    {inventoryShipmentDescriptor(
+                      row.finish_level,
+                      row.piece_type
+                    )}{" "}
+                    · מידות {row.length_m}×{row.width_m}×{row.height_m} מ׳ · סה״כ{" "}
                     {row.quantity_total} · זמין {row.quantity_available} ·
                     מוזמן {row.quantity_reserved}
                   </p>
@@ -196,7 +196,6 @@ export function StoneEditForm({
   stone: {
     id: string;
     name: string;
-    polish_type: string;
     color_hex: string;
   };
   inventoryRows: StoneInventoryListRow[];
@@ -205,19 +204,16 @@ export function StoneEditForm({
   const router = useRouter();
   const [colorHex, setColorHex] = useState(stone.color_hex);
   const [stoneName, setStoneName] = useState(stone.name);
-  const [polishType, setPolishType] = useState(stone.polish_type);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!polishType) return;
     setPending(true);
     setError(null);
     const fd = new FormData();
     fd.set("id", stone.id);
     fd.set("name", stoneName);
-    fd.set("polish_type", polishType);
     fd.set("color_hex", normalizeHex(colorHex));
     const res = await updateStone(fd);
     setPending(false);
@@ -268,26 +264,6 @@ export function StoneEditForm({
                   />
                 </Field>
               </div>
-
-              <Field label="סוג ליטוש">
-                <Select
-                  dir="rtl"
-                  value={polishType || undefined}
-                  onValueChange={setPolishType}
-                  required
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="בחר סוג ליטוש" />
-                  </SelectTrigger>
-                  <SelectContent dir="rtl">
-                    {POLISH_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {opt}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
 
               {error ? (
                 <p className="text-destructive text-sm" role="alert">

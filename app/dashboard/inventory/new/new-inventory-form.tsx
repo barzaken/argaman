@@ -15,8 +15,16 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import type { StoneRow } from "@/lib/db/types";
 import { computeVolumeM3FromCm } from "@/lib/db/calculations";
+import {
+  INVENTORY_FINISH_LEVEL_OPTIONS,
+  INVENTORY_PIECE_TYPE_OPTIONS,
+} from "@/lib/db/inventory-taxonomy";
+import type {
+  InventoryFinishLevelDb,
+  InventoryPieceTypeDb,
+  StoneRow,
+} from "@/lib/db/types";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "available", label: "זמין" },
@@ -75,6 +83,10 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
   const [pricePerM3, setPricePerM3] = useState("");
   const [customerPrice, setCustomerPrice] = useState("");
   const [status, setStatus] = useState<string>("available");
+  const [finishLevel, setFinishLevel] =
+    useState<InventoryFinishLevelDb>("halak");
+  const [pieceType, setPieceType] =
+    useState<InventoryPieceTypeDb>("panel");
   const [expectedDate, setExpectedDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -116,6 +128,8 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
     fd.set("price_per_m3", pricePerM3.replace(",", "."));
     fd.set("customer_price", customerPrice.replace(",", "."));
     fd.set("status", status);
+    fd.set("finish_level", finishLevel);
+    fd.set("piece_type", pieceType);
     if (status === "in_transit") fd.set("expected_arrival_date", expectedDate);
     const res = await createInventoryItem(fd);
     setPending(false);
@@ -130,10 +144,10 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
   const selectableStones = stones.filter((s) => s.is_active);
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-background">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-y-scroll bg-background">
       <form
         onSubmit={handleSubmit}
-        className="flex min-h-0 flex-1 flex-col overflow-auto"
+        className="flex min-h-screen overflow-y-scroll flex-1 flex-col overflow-auto"
       >
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch">
           <div className="flex min-h-0 w-full flex-col lg:w-[min(100%,26rem)] lg:shrink-0 lg:border-e lg:border-border xl:w-[min(100%,28rem)]">
@@ -156,14 +170,11 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
                       <SelectItem
                         key={stone.id}
                         value={String(stone.id)}
-                        textValue={`${stone.name} ${stone.polish_type}`}
+                        textValue={stone.name}
                       >
                         <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-start">
                           <span className="truncate font-medium">
                             {stone.name}
-                          </span>
-                          <span className="truncate text-muted-foreground text-xs">
-                            {stone.polish_type}
                           </span>
                         </span>
                       </SelectItem>
@@ -183,9 +194,6 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
                     <p className="truncate font-medium text-foreground">
                       {selectedStone.name}
                     </p>
-                    <p className="text-muted-foreground text-sm">
-                      ליטוש: {selectedStone.polish_type}
-                    </p>
                   </div>
                 </div>
               ) : null}
@@ -197,6 +205,51 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
               title="מידות וכמות"
               className="flex-none justify-start py-6 lg:pt-2"
             >
+              <div className="grid w-full gap-4 sm:grid-cols-2">
+                <Field label="רמת גימור">
+                  <Select
+                    dir="rtl"
+                    value={finishLevel}
+                    onValueChange={(v) =>
+                      setFinishLevel(v as InventoryFinishLevelDb)
+                    }
+                    required
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent dir="rtl">
+                      {INVENTORY_FINISH_LEVEL_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="חלק">
+                  <Select
+                    dir="rtl"
+                    value={pieceType}
+                    onValueChange={(v) =>
+                      setPieceType(v as InventoryPieceTypeDb)
+                    }
+                    required
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent dir="rtl">
+                      {INVENTORY_PIECE_TYPE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+
               <div className="grid w-full gap-4 sm:grid-cols-3">
 
                 <Field label="גובה / עובי (ס״מ)">

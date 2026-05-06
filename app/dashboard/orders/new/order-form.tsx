@@ -29,6 +29,7 @@ import {
   computeTotalWithVat,
   computeVatAmount,
 } from "@/lib/db/calculations";
+import { formatInventoryShipmentSelectLabel } from "@/lib/db/inventory-taxonomy";
 import { formatIls } from "@/lib/db/format";
 
 const VAT_RATE = 0.18;
@@ -234,10 +235,10 @@ export function OrderForm({
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-auto bg-background p-4 md:p-8">
+    <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-y-scroll bg-background p-4 md:p-8">
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-[min(100%,56rem)] flex-col gap-6"
+        className="mx-auto flex w-full max-w-[min(100%,56rem)] flex-col gap-6 "
       >
         <div>
           <h2 className="text-lg font-semibold text-foreground">תעודת הזמנה חדשה</h2>
@@ -408,7 +409,7 @@ export function OrderForm({
                       <SelectContent dir="rtl">
                         {stones.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
-                            {s.name} · {s.polish_type}
+                            {s.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -428,9 +429,12 @@ export function OrderForm({
                       </SelectTrigger>
                       <SelectContent dir="rtl">
                         {invOptions.map((i) => (
-                          <SelectItem key={i.id} value={i.id}>
-                            זמין {i.quantity_available} · נפח משלוח{" "}
-                            {i.volume_m3} קו״ב
+                          <SelectItem
+                            key={i.id}
+                            value={i.id}
+                            textValue={formatInventoryShipmentSelectLabel(i)}
+                          >
+                            {formatInventoryShipmentSelectLabel(i)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -541,7 +545,7 @@ export function OrderForm({
           </p>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
           <Button
             type="button"
             variant="outline"

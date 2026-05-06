@@ -58,9 +58,6 @@ export default async function StonesPage() {
                         </Badge>
                       ) : null}
                     </div>
-                    <p className="text-muted-foreground text-sm">
-                      {stone.polish_type as string}
-                    </p>
                   </div>
                 </Link>
               </li>

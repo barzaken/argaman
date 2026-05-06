@@ -82,22 +82,19 @@ export default async function CustomerDetailPage({
 
   const { data: stoneRows } = await supabase
     .from("stones")
-    .select("id, name, polish_type")
+    .select("id, name")
     .eq("is_active", true)
     .order("name");
 
-  const stoneMap = new Map<
-    string,
-    Pick<StoneRow, "id" | "name" | "polish_type">
-  >();
+  const stoneMap = new Map<string, Pick<StoneRow, "id" | "name">>();
   for (const row of stoneRows ?? []) {
-    stoneMap.set(row.id as string, row as Pick<StoneRow, "id" | "name" | "polish_type">);
+    stoneMap.set(row.id as string, row as Pick<StoneRow, "id" | "name">);
   }
 
   const overrides = (prices ?? []).map((p) => {
     const pr = p as CustomerStonePriceRow;
     const st = stoneMap.get(pr.stone_id);
-    const label = st ? `${st.name} · ${st.polish_type}` : pr.stone_id;
+    const label = st ? st.name : pr.stone_id;
     return { ...pr, label };
   });
 
@@ -204,10 +201,7 @@ export default async function CustomerDetailPage({
             customerId={id}
             overrides={overrides}
             stoneOptions={
-              (stoneRows ?? []) as Pick<
-                StoneRow,
-                "id" | "name" | "polish_type"
-              >[]
+              (stoneRows ?? []) as Pick<StoneRow, "id" | "name">[]
             }
           />
         </div>

@@ -4,8 +4,11 @@ import type {
   DeliveryOrderItem,
   StoneItem,
 } from "@/components/sidebar/types";
-import type { InventoryItemViewRow } from "@/lib/db/types";
-import type { DeliveryViewRow } from "@/lib/db/types";
+import type {
+  DeliveryViewRow,
+  InventoryItemViewRow,
+} from "@/lib/db/types";
+import { inventoryShipmentDescriptor } from "@/lib/db/inventory-taxonomy";
 
 export type SidebarPreviewData = {
   inStock: StoneItem[];
@@ -16,12 +19,17 @@ export type SidebarPreviewData = {
 function mapInventoryRow(
   row: Pick<
     InventoryItemViewRow,
-    "id" | "stone_name" | "polish_type" | "color_hex" | "quantity_available"
+    | "id"
+    | "stone_name"
+    | "color_hex"
+    | "quantity_available"
+    | "finish_level"
+    | "piece_type"
   >
 ): StoneItem {
   return {
     id: row.id,
-    title: `${row.stone_name} · ${row.polish_type} (${row.quantity_available} זמין)`,
+    title: `${row.stone_name} · ${inventoryShipmentDescriptor(row.finish_level, row.piece_type)} (${row.quantity_available} זמין)`,
     href: `/dashboard/inventory/${row.id}/edit`,
     icon: "gem",
     colorHex: row.color_hex,
@@ -31,12 +39,16 @@ function mapInventoryRow(
 function mapInventoryRowNoQty(
   row: Pick<
     InventoryItemViewRow,
-    "id" | "stone_name" | "polish_type" | "color_hex"
+    | "id"
+    | "stone_name"
+    | "color_hex"
+    | "finish_level"
+    | "piece_type"
   >
 ): StoneItem {
   return {
     id: row.id,
-    title: `${row.stone_name} · ${row.polish_type}`,
+    title: `${row.stone_name} · ${inventoryShipmentDescriptor(row.finish_level, row.piece_type)}`,
     href: `/dashboard/inventory/${row.id}/edit`,
     icon: "package",
     colorHex: row.color_hex,
@@ -60,7 +72,7 @@ export async function buildSidebarPreview(
   const { data: available } = await supabase
     .from("inventory_items_view")
     .select(
-      "id, stone_name, polish_type, color_hex, quantity_available, status"
+      "id, stone_name, color_hex, quantity_available, status, finish_level, piece_type"
     )
     .gt("quantity_available", 0)
     .in("status", ["available", "in_transit"])
@@ -69,7 +81,9 @@ export async function buildSidebarPreview(
 
   const { data: notAvailable } = await supabase
     .from("inventory_items_view")
-    .select("id, stone_name, polish_type, color_hex, quantity_available, status")
+    .select(
+      "id, stone_name, color_hex, quantity_available, status, finish_level, piece_type"
+    )
     .lte("quantity_available", 0)
     .order("created_at", { ascending: false })
     .limit(12);

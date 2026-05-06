@@ -35,7 +35,7 @@ export function CustomerPriceOverrides({
   overrides: (CustomerStonePriceRow & {
     label: string;
   })[];
-  stoneOptions: Pick<StoneRow, "id" | "name" | "polish_type">[];
+  stoneOptions: Pick<StoneRow, "id" | "name">[];
 }) {
   const router = useRouter();
   const [stoneId, setStoneId] = useState("");
@@ -130,7 +130,7 @@ export function CustomerPriceOverrides({
               <SelectContent dir="rtl">
                 {stoneOptions.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.name} · {s.polish_type}
+                    {s.name}
                   </SelectItem>
                 ))}
               </SelectContent>

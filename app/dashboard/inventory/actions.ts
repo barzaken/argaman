@@ -18,6 +18,8 @@ const inventorySchema = z.object({
   price_per_m3: z.coerce.number().nonnegative(),
   customer_price: z.coerce.number().nonnegative(),
   status: z.enum(["available", "unavailable", "in_transit"]),
+  finish_level: z.enum(["halak", "tuboza", "masmesm"]),
+  piece_type: z.enum(["panel", "frame", "plate"]),
   expected_arrival_date: z.string().optional().nullable(),
 });
 
@@ -39,6 +41,8 @@ export async function createInventoryItem(
     price_per_m3: formData.get("price_per_m3"),
     customer_price: formData.get("customer_price"),
     status,
+    finish_level: formData.get("finish_level"),
+    piece_type: formData.get("piece_type"),
     expected_arrival_date:
       expectedRaw && String(expectedRaw).length > 0
         ? String(expectedRaw)
@@ -71,6 +75,8 @@ export async function createInventoryItem(
     price_per_m3: parsed.data.price_per_m3,
     customer_price: parsed.data.customer_price,
     status: parsed.data.status,
+    finish_level: parsed.data.finish_level,
+    piece_type: parsed.data.piece_type,
     expected_arrival_date:
       parsed.data.status === "in_transit"
         ? parsed.data.expected_arrival_date
@@ -111,6 +117,8 @@ export async function updateInventoryItem(
     price_per_m3: formData.get("price_per_m3"),
     customer_price: formData.get("customer_price"),
     status,
+    finish_level: formData.get("finish_level"),
+    piece_type: formData.get("piece_type"),
     expected_arrival_date:
       expectedRaw && String(expectedRaw).length > 0
         ? String(expectedRaw)
@@ -170,6 +178,8 @@ export async function updateInventoryItem(
       price_per_m3: parsed.data.price_per_m3,
       customer_price: parsed.data.customer_price,
       status: parsed.data.status,
+      finish_level: parsed.data.finish_level,
+      piece_type: parsed.data.piece_type,
       expected_arrival_date:
         parsed.data.status === "in_transit"
           ? parsed.data.expected_arrival_date
