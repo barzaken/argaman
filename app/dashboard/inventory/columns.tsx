@@ -5,6 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
 
 import {
@@ -47,6 +48,13 @@ export const inventoryColumnLabels: Record<string, string> = {
 
 function InventoryActions({ id }: { id: string }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  async function handleDelete() {
+    const res = await deleteInventoryItem(id);
+    if (!res.ok) setErrorMessage(res.message);
+    else window.location.reload();
+  }
 
   return (
     <div onClick={(e) => e.stopPropagation()}>
@@ -54,15 +62,19 @@ function InventoryActions({ id }: { id: string }) {
         variant="outline"
         size="sm"
         type="button"
-        onClick={async () => {
-          if (!confirm("למחוק או להפוך למלאי לא זמין?")) return;
-          const res = await deleteInventoryItem(id);
-          if (!res.ok) setErrorMessage(res.message);
-          else window.location.reload();
-        }}
+        onClick={() => setConfirmOpen(true)}
       >
         מחיקה
       </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="מחיקת פריט מלאי"
+        description="למחוק או להפוך למלאי לא זמין?"
+        confirmLabel="מחיקה"
+        confirmVariant="destructive"
+        onConfirm={() => void handleDelete()}
+      />
       <ErrorDialog
         message={errorMessage}
         onClose={() => setErrorMessage(null)}

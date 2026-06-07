@@ -52,6 +52,84 @@ type Line = {
   price_per_m3: string;
 };
 
+function newEmptyLine(): Line {
+  return {
+    key: newLineKey(),
+    stone_id: "",
+    inventory_item_id: "",
+    length_cm: "",
+    width_cm: "",
+    height_cm: "",
+    quantity: "1",
+    price_per_m3: "",
+  };
+}
+
+function parseLineNumbers(ln: Line) {
+  return {
+    L: parseFloat(ln.length_cm.replace(",", ".")) || 0,
+    W: parseFloat(ln.width_cm.replace(",", ".")) || 0,
+    H: parseFloat(ln.height_cm.replace(",", ".")) || 0,
+    Q: parseInt(ln.quantity.replace(",", "."), 10),
+    p: parseFloat(ln.price_per_m3.replace(",", ".")),
+  };
+}
+
+function isLineTouched(ln: Line): boolean {
+  return !!(
+    ln.stone_id ||
+    ln.inventory_item_id ||
+    ln.length_cm.trim() ||
+    ln.width_cm.trim() ||
+    ln.height_cm.trim() ||
+    ln.price_per_m3.trim() ||
+    (ln.quantity.trim() && ln.quantity !== "1")
+  );
+}
+
+function isLineComplete(ln: Line): boolean {
+  const { L, W, H, Q, p } = parseLineNumbers(ln);
+  return !!(
+    ln.stone_id &&
+    ln.inventory_item_id &&
+    L > 0 &&
+    W > 0 &&
+    H > 0 &&
+    Number.isInteger(Q) &&
+    Q > 0 &&
+    !Number.isNaN(p) &&
+    p >= 0
+  );
+}
+
+function getLineIssues(ln: Line, index: number): string | null {
+  if (!isLineTouched(ln)) return null;
+  const prefix = `פריט ${index + 1}:`;
+  if (!ln.stone_id) return `${prefix} חסרה בחירת אבן`;
+  if (!ln.inventory_item_id) return `${prefix} חסר משלוח במלאי`;
+  const { L, W, H, Q, p } = parseLineNumbers(ln);
+  if (!L || !W || !H) return `${prefix} חסרות מידות תקינות`;
+  if (!Number.isInteger(Q) || Q <= 0) return `${prefix} כמות לא תקינה`;
+  if (Number.isNaN(p) || p < 0) return `${prefix} מחיר לא תקין`;
+  return null;
+}
+
+function validateLines(lines: Line[]): string | null {
+  const complete = lines.filter(isLineComplete);
+  if (complete.length === 0) {
+    const touchedIncomplete = lines
+      .map((ln, idx) => getLineIssues(ln, idx))
+      .find((msg) => msg != null);
+    if (touchedIncomplete) return touchedIncomplete;
+    return "נא לבחור אבן ומשלוח במלאי לפחות לפריט אחד";
+  }
+  for (let idx = 0; idx < lines.length; idx++) {
+    const issue = getLineIssues(lines[idx], idx);
+    if (issue) return issue;
+  }
+  return null;
+}
+
 function Field({
   label,
   children,
@@ -88,18 +166,7 @@ export function OrderForm({
   const [supplyDue, setSupplyDue] = useState("");
   const [signatureUrl, setSignatureUrl] = useState("");
   const [vatIncluded, setVatIncluded] = useState(false);
-  const [lines, setLines] = useState<Line[]>([
-    {
-      key: newLineKey(),
-      stone_id: "",
-      inventory_item_id: "",
-      length_cm: "",
-      width_cm: "",
-      height_cm: "",
-      quantity: "1",
-      price_per_m3: "",
-    },
-  ]);
+  const [lines, setLines] = useState<Line[]>([newEmptyLine()]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -154,7 +221,15 @@ export function OrderForm({
           next.height_cm = "";
           next.price_per_m3 = "";
           const opts = inventoryForStone(patch.stone_id);
-          if (opts.length > 0) {
+          if (opts.length === 1) {
+            const inv = opts[0];
+            next.inventory_item_id = inv.id;
+            next.length_cm = metersToCmInput(Number(inv.length_m));
+            next.width_cm = metersToCmInput(Number(inv.width_m));
+            next.height_cm = metersToCmInput(Number(inv.height_m));
+            const dp = effectiveLinePricePerM3(inv.id);
+            if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
+          } else if (opts.length > 0) {
             const dp = effectiveLinePricePerM3(opts[0].id);
             if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
           }
@@ -195,25 +270,28 @@ export function OrderForm({
       setError("נא לבחור לקוח");
       return;
     }
+
+    const validationError = validateLines(lines);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setPending(true);
     setError(null);
 
-    const items = lines
-      .filter((ln) => ln.stone_id && ln.inventory_item_id)
-      .map((ln) => {
-        const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
-        const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
-        const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
-        return {
-          stone_id: ln.stone_id,
-          inventory_item_id: ln.inventory_item_id,
-          length_m: L / 100,
-          width_m: W / 100,
-          height_m: H / 100,
-          quantity: parseInt(ln.quantity.replace(",", "."), 10),
-          price_per_m3: parseFloat(ln.price_per_m3.replace(",", ".")),
-        };
-      });
+    const items = lines.filter(isLineComplete).map((ln) => {
+      const { L, W, H, Q, p } = parseLineNumbers(ln);
+      return {
+        stone_id: ln.stone_id,
+        inventory_item_id: ln.inventory_item_id,
+        length_m: L / 100,
+        width_m: W / 100,
+        height_m: H / 100,
+        quantity: Q,
+        price_per_m3: p,
+      };
+    });
 
     const res = await createOrder({
       customer_id: customerId,
@@ -322,19 +400,7 @@ export function OrderForm({
               variant="outline"
               size="sm"
               onClick={() =>
-                setLines((prev) => [
-                  ...prev,
-                  {
-                    key: newLineKey(),
-                    stone_id: "",
-                    inventory_item_id: "",
-                    length_cm: "",
-                    width_cm: "",
-                    height_cm: "",
-                    quantity: "1",
-                    price_per_m3: "",
-                  },
-                ])
+                setLines((prev) => [newEmptyLine(), ...prev])
               }
             >
               שורה נוספת

@@ -31,7 +31,7 @@ const createOrderPayloadSchema = z.object({
   signature_url: z.string().optional().nullable(),
   vat_rate: z.coerce.number().min(0).max(1).optional(),
   vat_included: z.boolean(),
-  items: z.array(orderItemInputSchema).min(1),
+  items: z.array(orderItemInputSchema).min(1, "נא להוסיף לפחות פריט אחד תקין"),
 });
 
 export async function createOrder(

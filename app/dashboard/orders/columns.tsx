@@ -6,6 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
 
 import type { OrderViewRow } from "@/lib/db/types";
@@ -46,6 +47,17 @@ export const ordersColumnLabels: Record<string, string> = {
 
 function OrderActions({ order }: { order: OrderViewRow }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  const deleteDescription = order.has_delivery
+    ? "למחוק את ההזמנה ואת תעודת המשלוח? כמויות יוחזרו מהנגרע במלאי."
+    : "למחוק את ההזמנה? משוחרר מלאי מזומן.";
+
+  async function handleDelete() {
+    const res = await deleteOrder(order.id);
+    if (!res.ok) setErrorMessage(res.message);
+    else window.location.reload();
+  }
 
   return (
     <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
@@ -67,18 +79,19 @@ function OrderActions({ order }: { order: OrderViewRow }) {
         variant="outline"
         size="sm"
         type="button"
-        onClick={async () => {
-          const msg = order.has_delivery
-            ? "למחוק את ההזמנה ואת תעודת המשלוח? כמויות יוחזרו מהנגרע במלאי."
-            : "למחוק את ההזמנה? משוחרר מלאי מזומן.";
-          if (!confirm(msg)) return;
-          const res = await deleteOrder(order.id);
-          if (!res.ok) setErrorMessage(res.message);
-          else window.location.reload();
-        }}
+        onClick={() => setDeleteConfirmOpen(true)}
       >
         מחיקה
       </Button>
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="מחיקת הזמנה"
+        description={deleteDescription}
+        confirmLabel="מחיקה"
+        confirmVariant="destructive"
+        onConfirm={() => void handleDelete()}
+      />
       <ErrorDialog
         message={errorMessage}
         onClose={() => setErrorMessage(null)}

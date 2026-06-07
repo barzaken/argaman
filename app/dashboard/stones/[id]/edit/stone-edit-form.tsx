@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { archiveStone, updateStone } from "../../actions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -206,6 +207,7 @@ export function StoneEditForm({
   const [stoneName, setStoneName] = useState(stone.name);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -226,7 +228,6 @@ export function StoneEditForm({
   }
 
   async function handleArchive() {
-    if (!confirm("להפסיק להציג את האבן בקטלוג?")) return;
     const res = await archiveStone(stone.id);
     if (!res.ok) {
       setError(res.message);
@@ -285,10 +286,19 @@ export function StoneEditForm({
           <Button
             type="button"
             variant="destructive"
-            onClick={() => void handleArchive()}
+            onClick={() => setArchiveDialogOpen(true)}
           >
             ארכיון
           </Button>
+          <ConfirmDialog
+            open={archiveDialogOpen}
+            onOpenChange={setArchiveDialogOpen}
+            title="ארכיון אבן"
+            description="להפסיק להציג את האבן בקטלוג?"
+            confirmLabel="ארכיון"
+            confirmVariant="destructive"
+            onConfirm={() => void handleArchive()}
+          />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
