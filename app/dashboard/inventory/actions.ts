@@ -90,6 +90,7 @@ export async function createInventoryItem(
   if (error) return { ok: false, message: error.message };
 
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/inventory/new");
   revalidatePath("/dashboard");
   return { ok: true };
 }

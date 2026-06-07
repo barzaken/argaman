@@ -137,7 +137,17 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
       setError(res.message);
       return;
     }
-    router.push("/dashboard/inventory");
+    setSelectedStoneId("");
+    setLengthCm("240");
+    setWidthCm("135");
+    setHeightCm("2");
+    setQuantity("1");
+    setPricePerM3("");
+    setCustomerPrice("");
+    setStatus("available");
+    setFinishLevel("halak");
+    setPieceType("panel");
+    setExpectedDate("");
     router.refresh();
   }
 

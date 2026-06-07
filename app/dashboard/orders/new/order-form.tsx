@@ -30,7 +30,7 @@ import {
   computeVatAmount,
 } from "@/lib/db/calculations";
 import { formatInventoryShipmentSelectLabel } from "@/lib/db/inventory-taxonomy";
-import { formatIls } from "@/lib/db/format";
+import { formatIls, formatVolumeM3 } from "@/lib/db/format";
 
 const VAT_RATE = 0.18;
 
@@ -241,19 +241,22 @@ export function OrderForm({
 
   const totalsPreview = useMemo(() => {
     let subtotalEx = 0;
+    let totalVolumeM3 = 0;
     for (const ln of lines) {
       const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
       const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
       const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
       const Q = parseInt(ln.quantity.replace(",", "."), 10) || 0;
       const p = parseFloat(ln.price_per_m3.replace(",", ".")) || 0;
-      if (!L || !W || !H || !Q || !p) continue;
+      if (!L || !W || !H || !Q) continue;
       const vol = computeVolumeM3FromCm({
         lengthCm: L,
         widthCm: W,
         heightCm: H,
         quantity: Q,
       });
+      totalVolumeM3 += vol;
+      if (!p) continue;
       const priceEx = vatIncluded
         ? pricePerM3ExVatFromInclusive(p, VAT_RATE)
         : p;
@@ -261,7 +264,7 @@ export function OrderForm({
     }
     const vat = computeVatAmount(subtotalEx, VAT_RATE);
     const total = computeTotalWithVat(subtotalEx, VAT_RATE);
-    return { subtotalEx, vat, total };
+    return { subtotalEx, vat, total, totalVolumeM3 };
   }, [lines, vatIncluded]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -583,6 +586,14 @@ export function OrderForm({
 
         <div className="rounded-lg border border-border bg-muted/30 p-4">
           <div className="flex flex-col gap-1 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">סה״כ קוב</span>
+              <span className="tabular-nums font-medium">
+                {totalsPreview.totalVolumeM3 > 0
+                  ? `${formatVolumeM3(totalsPreview.totalVolumeM3)} קו״ב`
+                  : "—"}
+              </span>
+            </div>
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">סכום לפני מע״מ</span>
               <span className="tabular-nums font-medium">
