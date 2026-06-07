@@ -7,6 +7,9 @@ export type InventoryFinishLevelDb = "halak" | "tuboza" | "masmesm";
 
 /** סוג חלק: פאנל / מסגרת / פלטה */
 export type InventoryPieceTypeDb = "panel" | "frame" | "plate";
+
+/** יחידת תמחור למלאי */
+export type InventoryPricingUnitDb = "m3" | "m2";
 export type OrderStatusDb =
   | "open"
   | "in_production"
@@ -61,6 +64,9 @@ export type InventoryItemViewRow = {
   quantity_delivered: number;
   quantity_available: number;
   volume_m3: number;
+  pricing_unit: InventoryPricingUnitDb;
+  price_per_m2: number | null;
+  area_m2: number;
   price_per_m3: number;
   customer_price: number;
   status: InventoryStatusDb;

@@ -14,8 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { computeVolumeM3FromCm } from "@/lib/db/calculations";
+import {
+  computeAreaM2FromCm,
+  computeVolumeM3FromCm,
+} from "@/lib/db/calculations";
+import { formatAreaM2 } from "@/lib/db/format";
 import {
   INVENTORY_FINISH_LEVEL_OPTIONS,
   INVENTORY_PIECE_TYPE_OPTIONS,
@@ -23,6 +28,7 @@ import {
 import type {
   InventoryFinishLevelDb,
   InventoryPieceTypeDb,
+  InventoryPricingUnitDb,
   StoneRow,
 } from "@/lib/db/types";
 
@@ -80,7 +86,10 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
   const [widthCm, setWidthCm] = useState("135");
   const [heightCm, setHeightCm] = useState("2");
   const [quantity, setQuantity] = useState("1");
+  const [pricingUnit, setPricingUnit] =
+    useState<InventoryPricingUnitDb>("m3");
   const [pricePerM3, setPricePerM3] = useState("");
+  const [pricePerM2, setPricePerM2] = useState("");
   const [customerPrice, setCustomerPrice] = useState("");
   const [status, setStatus] = useState<string>("available");
   const [finishLevel, setFinishLevel] =
@@ -111,6 +120,14 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
     });
   }, [lengthCm, widthCm, heightCm, quantity]);
 
+  const areaPreview = useMemo(() => {
+    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
+    const W = parseFloat(widthCm.replace(",", ".")) || 0;
+    const Q = parseInt(quantity.replace(",", "."), 10) || 0;
+    if (!L || !W || !Q) return null;
+    return computeAreaM2FromCm({ lengthCm: L, widthCm: W, quantity: Q });
+  }, [lengthCm, widthCm, quantity]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedStoneId || !selectedStone) return;
@@ -120,12 +137,19 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
     fd.set("stone_id", selectedStoneId);
     const L = parseFloat(lengthCm.replace(",", ".")) || 0;
     const W = parseFloat(widthCm.replace(",", ".")) || 0;
-    const H = parseFloat(heightCm.replace(",", ".")) || 0;
+    const H =
+      parseFloat(heightCm.replace(",", ".")) ||
+      (pricingUnit === "m2" ? 2 : 0);
     fd.set("length_m", String(L / 100));
     fd.set("width_m", String(W / 100));
     fd.set("height_m", String(H / 100));
     fd.set("quantity_total", quantity);
-    fd.set("price_per_m3", pricePerM3.replace(",", "."));
+    fd.set("pricing_unit", pricingUnit);
+    if (pricingUnit === "m3") {
+      fd.set("price_per_m3", pricePerM3.replace(",", "."));
+    } else {
+      fd.set("price_per_m2", pricePerM2.replace(",", "."));
+    }
     fd.set("customer_price", customerPrice.replace(",", "."));
     fd.set("status", status);
     fd.set("finish_level", finishLevel);
@@ -142,7 +166,9 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
     setWidthCm("135");
     setHeightCm("2");
     setQuantity("1");
+    setPricingUnit("m3");
     setPricePerM3("");
+    setPricePerM2("");
     setCustomerPrice("");
     setStatus("available");
     setFinishLevel("halak");
@@ -215,6 +241,22 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
               title="מידות וכמות"
               className="flex-none justify-start py-6 lg:pt-2"
             >
+              <Tabs
+                value={pricingUnit}
+                onValueChange={(v) =>
+                  setPricingUnit(v as InventoryPricingUnitDb)
+                }
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="m3" className="flex-1">
+                    לפי קוב
+                  </TabsTrigger>
+                  <TabsTrigger value="m2" className="flex-1">
+                    לפי מ״ר
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               <div className="grid w-full gap-4 sm:grid-cols-2">
                 <Field label="רמת גימור">
                   <Select
@@ -260,18 +302,35 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
                 </Field>
               </div>
 
-              <div className="grid w-full gap-4 sm:grid-cols-3">
-
-                <Field label="גובה / עובי (ס״מ)">
-                  <Input
-                    dir="ltr"
-                    inputMode="decimal"
-                    value={heightCm}
-                    onChange={(e) => setHeightCm(e.target.value)}
-                    step="any"
-                    required
-                  />
-                </Field>
+              <div
+                className={cn(
+                  "grid w-full gap-4",
+                  pricingUnit === "m3" ? "sm:grid-cols-3" : "sm:grid-cols-2"
+                )}
+              >
+                {pricingUnit === "m3" ? (
+                  <Field label="גובה / עובי (ס״מ)">
+                    <Input
+                      dir="ltr"
+                      inputMode="decimal"
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(e.target.value)}
+                      step="any"
+                      required
+                    />
+                  </Field>
+                ) : (
+                  <Field label="עובי (ס״מ)">
+                    <Input
+                      dir="ltr"
+                      inputMode="decimal"
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(e.target.value)}
+                      placeholder="2"
+                      step="any"
+                    />
+                  </Field>
+                )}
                 <Field label="רוחב (ס״מ)">
                   <Input
                     dir="ltr"
@@ -306,14 +365,25 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
                     required
                   />
                 </Field>
-                <Field label="נפח משוער (קו״ב)" className="justify-end">
+                <Field
+                  label={
+                    pricingUnit === "m3"
+                      ? "נפח משוער (קו״ב)"
+                      : "שטח פנים (מ״ר)"
+                  }
+                  className="justify-end"
+                >
                   <div className="flex h-8 items-center rounded-lg border border-dashed border-border bg-muted/40 px-2.5 tabular-nums text-sm font-medium">
-                    {volumePreview != null
-                      ? new Intl.NumberFormat("he-IL", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
-                        }).format(volumePreview)
-                      : "—"}
+                    {pricingUnit === "m3"
+                      ? volumePreview != null
+                        ? new Intl.NumberFormat("he-IL", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          }).format(volumePreview)
+                        : "—"
+                      : areaPreview != null
+                        ? formatAreaM2(areaPreview)
+                        : "—"}
                   </div>
                 </Field>
               </div>
@@ -325,17 +395,36 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
                   מחירים
                 </h3>
                 <div className="grid w-full gap-4 sm:grid-cols-2">
-                  <Field label="מחיר לקו״ב (₪)">
-                    <Input
-                      dir="ltr"
-                      inputMode="decimal"
-                      value={pricePerM3}
-                      onChange={(e) => setPricePerM3(e.target.value)}
-                      placeholder="4200"
-                      required
-                    />
-                  </Field>
-                  <Field label="מחיר ללקוח (₪)">
+                  {pricingUnit === "m3" ? (
+                    <Field label="מחיר לקו״ב (₪)">
+                      <Input
+                        dir="ltr"
+                        inputMode="decimal"
+                        value={pricePerM3}
+                        onChange={(e) => setPricePerM3(e.target.value)}
+                        placeholder="4200"
+                        required
+                      />
+                    </Field>
+                  ) : (
+                    <Field label="מחיר למ״ר (₪)">
+                      <Input
+                        dir="ltr"
+                        inputMode="decimal"
+                        value={pricePerM2}
+                        onChange={(e) => setPricePerM2(e.target.value)}
+                        placeholder="850"
+                        required
+                      />
+                    </Field>
+                  )}
+                  <Field
+                    label={
+                      pricingUnit === "m3"
+                        ? "מחיר ללקוח (₪)"
+                        : "מחיר ללקוח למ״ר (₪)"
+                    }
+                  >
                     <Input
                       dir="ltr"
                       inputMode="decimal"

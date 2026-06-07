@@ -9,6 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TYPE inventory_status AS ENUM ('available', 'unavailable', 'in_transit');
 CREATE TYPE inventory_finish_level AS ENUM ('halak', 'tuboza', 'masmesm');
 CREATE TYPE inventory_piece_type AS ENUM ('panel', 'frame', 'plate');
+CREATE TYPE inventory_pricing_unit AS ENUM ('m3', 'm2');
 CREATE TYPE order_status AS ENUM ('open', 'in_production', 'ready_for_delivery', 'completed', 'cancelled');
 CREATE TYPE order_item_status AS ENUM ('pending', 'in_progress', 'completed', 'cancelled');
 CREATE TYPE priority AS ENUM ('low', 'medium', 'urgent');
@@ -82,6 +83,11 @@ CREATE TABLE public.inventory_items (
   volume_m3 numeric(12,4) GENERATED ALWAYS AS (
     ROUND((length_m * width_m * height_m * quantity_total)::numeric, 4)
   ) STORED,
+  pricing_unit inventory_pricing_unit NOT NULL DEFAULT 'm3',
+  price_per_m2 numeric(12,2),
+  area_m2 numeric(12,4) GENERATED ALWAYS AS (
+    ROUND((length_m * width_m * quantity_total)::numeric, 4)
+  ) STORED,
   price_per_m3 numeric(12,2) NOT NULL,
   customer_price numeric(12,2) NOT NULL,
   status inventory_status NOT NULL DEFAULT 'available',
@@ -101,6 +107,10 @@ CREATE TABLE public.inventory_items (
   ),
   CONSTRAINT inventory_in_transit_arrival_chk CHECK (
     status <> 'in_transit'::inventory_status OR expected_arrival_date IS NOT NULL
+  ),
+  CONSTRAINT inventory_pricing_prices_chk CHECK (
+    (pricing_unit = 'm3'::inventory_pricing_unit AND price_per_m2 IS NULL)
+    OR (pricing_unit = 'm2'::inventory_pricing_unit AND price_per_m2 IS NOT NULL)
   )
 );
 

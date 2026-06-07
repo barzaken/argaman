@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import type {
   ColumnDef,
   ColumnFiltersState,
+  OnChangeFn,
+  RowSelectionState,
   VisibilityState,
 } from "@tanstack/react-table";
 import {
@@ -63,6 +65,11 @@ export type CrmDataTableProps<
   columnLabels?: Record<string, string>;
   /** Opens detail/edit on row click (interactive cells use stopPropagation). */
   navigateRows?: CrmRowNavigateKind;
+  enableRowSelection?: boolean;
+  rowSelection?: RowSelectionState;
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  getRowCanSelect?: (row: TData) => boolean;
+  selectionActions?: React.ReactNode;
 };
 
 export function CrmDataTable<
@@ -75,6 +82,11 @@ export function CrmDataTable<
   filterPlaceholder = "סנן…",
   columnLabels = {},
   navigateRows,
+  enableRowSelection = false,
+  rowSelection,
+  onRowSelectionChange,
+  getRowCanSelect,
+  selectionActions,
 }: CrmDataTableProps<TData, TValue>) {
   const router = useRouter();
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -82,6 +94,11 @@ export function CrmDataTable<
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
+  const [internalRowSelection, setInternalRowSelection] =
+    React.useState<RowSelectionState>({});
+
+  const selectionState = rowSelection ?? internalRowSelection;
+  const setSelectionState = onRowSelectionChange ?? setInternalRowSelection;
 
   /* TanStack Table returns unstable function refs; React Compiler skips memoization here. */
   // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable
@@ -92,29 +109,41 @@ export function CrmDataTable<
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
+    enableRowSelection: enableRowSelection
+      ? (row) => (getRowCanSelect ? getRowCanSelect(row.original) : true)
+      : false,
+    getRowId: (row) => row.id,
+    onRowSelectionChange: setSelectionState,
     state: {
       columnFilters,
       columnVisibility,
+      rowSelection: enableRowSelection ? selectionState : undefined,
     },
   });
 
   const visibleColumnCount = table.getVisibleLeafColumns().length;
   const filterCol =
     filterColumnId != null ? table.getColumn(filterColumnId) : undefined;
+  const selectedCount = enableRowSelection
+    ? table.getFilteredSelectedRowModel().rows.length
+    : 0;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2 py-1">
-        {filterCol ? (
-          <Input
-            placeholder={filterPlaceholder}
-            value={(filterCol.getFilterValue() as string) ?? ""}
-            onChange={(event) => filterCol.setFilterValue(event.target.value)}
-            className="max-w-sm"
-          />
-        ) : (
-          <span />
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {filterCol ? (
+            <Input
+              placeholder={filterPlaceholder}
+              value={(filterCol.getFilterValue() as string) ?? ""}
+              onChange={(event) => filterCol.setFilterValue(event.target.value)}
+              className="max-w-sm"
+            />
+          ) : null}
+          {enableRowSelection && selectedCount > 0 && selectionActions
+            ? selectionActions
+            : null}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline">עמודות</Button>
@@ -163,24 +192,24 @@ export function CrmDataTable<
                   ? rowHrefFromKind(navigateRows, row.original.id)
                   : undefined;
                 return (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className={cn(href && "cursor-pointer hover:bg-muted/60")}
-                  onClick={() => {
-                    if (href) router.push(href);
-                  }}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              );
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className={cn(href && "cursor-pointer hover:bg-muted/60")}
+                    onClick={() => {
+                      if (href) router.push(href);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
               })
             ) : (
               <TableRow>

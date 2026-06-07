@@ -33,6 +33,27 @@ export function computeVolumeM3FromCm(item: {
   });
 }
 
+/** שטח פנים במ״ר ממידות בטופס בסנטימטרים */
+export function computeAreaM2FromCm(item: {
+  lengthCm: number;
+  widthCm: number;
+  quantity: number;
+}): number {
+  const lm = item.lengthCm / 100;
+  const wm = item.widthCm / 100;
+  const area = lm * wm * item.quantity;
+  return Math.round(area * 10000) / 10000;
+}
+
+/** המרת מחיר למ״ר למחיר לקו״ב לפי עובי במטרים (תאימות להזמנות) */
+export function derivePricePerM3FromM2(
+  pricePerM2: number,
+  heightM: number
+): number {
+  if (heightM <= 0) return 0;
+  return Math.round((pricePerM2 / heightM) * 10000) / 10000;
+}
+
 /** ערך במטרים מהמסד → מחרוזת לשדה קלט בס״מ */
 export function metersToCmInput(m: number): string {
   const cm = Number(m) * 100;

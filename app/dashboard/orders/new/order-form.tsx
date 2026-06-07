@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createOrder } from "../actions";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,50 @@ function getLineIssues(ln: Line, index: number): string | null {
   return null;
 }
 
+function effectiveLinePricePerM3(
+  invId: string,
+  forCustomerId: string,
+  inventory: InventoryItemViewRow[],
+  overrides: CustomerStonePriceRow[]
+): number | null {
+  if (!invId) return null;
+  const invRow = inventory.find((i) => i.id === invId);
+  if (!invRow) return null;
+  if (forCustomerId) {
+    const ov = overrides.find(
+      (o) =>
+        o.customer_id === forCustomerId && o.stone_id === invRow.stone_id
+    );
+    if (ov?.price_per_m3 != null) return Number(ov.price_per_m3);
+  }
+  return Number(invRow.customer_price);
+}
+
+function buildLineFromInventory(
+  inv: InventoryItemViewRow,
+  forCustomerId: string,
+  inventory: InventoryItemViewRow[],
+  overrides: CustomerStonePriceRow[]
+): Line {
+  const price = effectiveLinePricePerM3(
+    inv.id,
+    forCustomerId,
+    inventory,
+    overrides
+  );
+  return {
+    key: newLineKey(),
+    stone_id: inv.stone_id,
+    inventory_item_id: inv.id,
+    length_cm: metersToCmInput(Number(inv.length_m)),
+    width_cm: metersToCmInput(Number(inv.width_m)),
+    height_cm: metersToCmInput(Number(inv.height_m)),
+    quantity: "1",
+    price_per_m3:
+      price != null && !Number.isNaN(price) ? String(price) : "",
+  };
+}
+
 function validateLines(lines: Line[]): string | null {
   const complete = lines.filter(isLineComplete);
   if (complete.length === 0) {
@@ -152,13 +196,16 @@ export function OrderForm({
   stones,
   inventory,
   overrides,
+  initialInventoryIds = [],
 }: {
   customers: CustomerRow[];
   stones: StoneRow[];
   inventory: InventoryItemViewRow[];
   overrides: CustomerStonePriceRow[];
+  initialInventoryIds?: string[];
 }) {
   const router = useRouter();
+  const seededRef = useRef(false);
   const [customerId, setCustomerId] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "urgent">(
     "medium"
@@ -170,19 +217,39 @@ export function OrderForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  /** מחיר לקו״ב בשורת הזמנה — מחיר קו״ב ללקוח מהסכם קטלוג (אבן) אם קיים, אחרת מחיר ללקוח של המשלוח */
-  function effectiveLinePricePerM3(invId: string): number | null {
-    if (!invId) return null;
-    const invRow = inventory.find((i) => i.id === invId);
-    if (!invRow) return null;
-    if (customerId) {
-      const ov = overrides.find(
-        (o) =>
-          o.customer_id === customerId && o.stone_id === invRow.stone_id
+  useEffect(() => {
+    if (seededRef.current || initialInventoryIds.length === 0) return;
+    seededRef.current = true;
+    const seeded = initialInventoryIds
+      .map((id) => inventory.find((i) => i.id === id))
+      .filter((inv): inv is InventoryItemViewRow => inv != null)
+      .map((inv) =>
+        buildLineFromInventory(inv, customerId, inventory, overrides)
       );
-      if (ov?.price_per_m3 != null) return Number(ov.price_per_m3);
-    }
-    return Number(invRow.customer_price);
+    if (seeded.length > 0) setLines(seeded);
+    // Seed once on mount from URL param; customer prices refresh via handleCustomerChange.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single-run seed
+  }, [initialInventoryIds, inventory, overrides]);
+
+  function linePrice(invId: string, forCustomerId: string): number | null {
+    return effectiveLinePricePerM3(
+      invId,
+      forCustomerId,
+      inventory,
+      overrides
+    );
+  }
+
+  function handleCustomerChange(nextCustomerId: string) {
+    setCustomerId(nextCustomerId);
+    setLines((prev) =>
+      prev.map((ln) => {
+        if (!ln.inventory_item_id) return ln;
+        const dp = linePrice(ln.inventory_item_id, nextCustomerId);
+        if (dp == null || Number.isNaN(dp)) return ln;
+        return { ...ln, price_per_m3: String(dp) };
+      })
+    );
   }
 
   function inventoryForStone(stoneId: string) {
@@ -207,7 +274,7 @@ export function OrderForm({
             next.length_cm = metersToCmInput(Number(invRow.length_m));
             next.width_cm = metersToCmInput(Number(invRow.width_m));
             next.height_cm = metersToCmInput(Number(invRow.height_m));
-            const dp = effectiveLinePricePerM3(invRow.id);
+            const dp = linePrice(invRow.id, customerId);
             if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
           }
         }
@@ -227,10 +294,10 @@ export function OrderForm({
             next.length_cm = metersToCmInput(Number(inv.length_m));
             next.width_cm = metersToCmInput(Number(inv.width_m));
             next.height_cm = metersToCmInput(Number(inv.height_m));
-            const dp = effectiveLinePricePerM3(inv.id);
+            const dp = linePrice(inv.id, customerId);
             if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
           } else if (opts.length > 0) {
-            const dp = effectiveLinePricePerM3(opts[0].id);
+            const dp = linePrice(opts[0].id, customerId);
             if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
           }
         }
@@ -333,7 +400,7 @@ export function OrderForm({
             <Select
               dir="rtl"
               value={customerId || undefined}
-              onValueChange={setCustomerId}
+              onValueChange={handleCustomerChange}
               required
             >
               <SelectTrigger>

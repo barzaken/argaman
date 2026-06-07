@@ -13,6 +13,7 @@ import {
   inventoryPieceTypeLabels,
 } from "@/lib/db/inventory-taxonomy";
 import {
+  formatAreaM2,
   formatIls,
   formatIlsDense,
   formatMeters,
@@ -30,8 +31,13 @@ const statusLabels: Record<InventoryRow["status"], string> = {
   in_transit: "בדרך",
 };
 
+export function inventoryRowCanSelect(row: InventoryRow): boolean {
+  return row.status === "available" && row.quantity_available > 0;
+}
+
 /** Labels for column visibility menu */
 export const inventoryColumnLabels: Record<string, string> = {
+  select: "בחירה",
   color_hex: "צבע",
   stone_name: "שם האבן",
   finish_level: "רמת גימור",
@@ -39,8 +45,8 @@ export const inventoryColumnLabels: Record<string, string> = {
   dimensions: "מידות",
   quantity_total: "כמות במשלוח",
   quantity_available: "זמין",
-  volumeM3: "נפח (קו״ב)",
-  price_per_m3: "מחיר לקו״ב",
+  volumeM3: "נפח / שטח",
+  price_per_m3: "מחיר לקו״ב / למ״ר",
   customer_price: "מחיר ללקוח",
   status: "סטטוס",
   actions: "פעולות",
@@ -84,6 +90,58 @@ function InventoryActions({ id }: { id: string }) {
 }
 
 export const inventoryColumns: ColumnDef<InventoryRow>[] = [
+  {
+    id: "select",
+    enableHiding: false,
+    header: ({ table }) => {
+      const selectableRows = table
+        .getRowModel()
+        .rows.filter((row) => row.getCanSelect());
+      const allSelected =
+        selectableRows.length > 0 &&
+        selectableRows.every((row) => row.getIsSelected());
+      const someSelected =
+        selectableRows.some((row) => row.getIsSelected()) && !allSelected;
+
+      return (
+        <div
+          className="flex items-center justify-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            aria-label="בחר הכל"
+            className="size-4 cursor-pointer accent-primary"
+            checked={allSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = someSelected;
+            }}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              for (const row of selectableRows) {
+                row.toggleSelected(checked);
+              }
+            }}
+          />
+        </div>
+      );
+    },
+    cell: ({ row }) => (
+      <div
+        className="flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          type="checkbox"
+          aria-label="בחר שורה"
+          className="size-4 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
+          checked={row.getIsSelected()}
+          disabled={!row.getCanSelect()}
+          onChange={row.getToggleSelectedHandler()}
+        />
+      </div>
+    ),
+  },
   {
     accessorKey: "color_hex",
     header: "צבע",
@@ -151,31 +209,53 @@ export const inventoryColumns: ColumnDef<InventoryRow>[] = [
   },
   {
     id: "volumeM3",
-    header: () => <div className="text-end">נפח (קו״ב)</div>,
-    accessorFn: (row) => Number(row.volume_m3),
-    cell: ({ getValue }) => (
-      <div className="text-end font-medium tabular-nums">
-        {formatVolumeM3(getValue() as number)}
-      </div>
-    ),
+    header: () => <div className="text-end">נפח / שטח</div>,
+    accessorFn: (row) =>
+      (row.pricing_unit ?? "m3") === "m2"
+        ? Number(row.area_m2)
+        : Number(row.volume_m3),
+    cell: ({ row }) => {
+      const isM2 = (row.original.pricing_unit ?? "m3") === "m2";
+      return (
+        <div className="text-end font-medium tabular-nums">
+          {isM2
+            ? `${formatAreaM2(Number(row.original.area_m2))} מ״ר`
+            : formatVolumeM3(Number(row.original.volume_m3))}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "price_per_m3",
-    header: () => <div className="text-end">מחיר לקו״ב</div>,
-    cell: ({ row }) => (
-      <div className="text-end tabular-nums">
-        {formatIlsDense(Number(row.original.price_per_m3))}
-      </div>
-    ),
+    header: () => <div className="text-end">מחיר לקו״ב / למ״ר</div>,
+    cell: ({ row }) => {
+      const isM2 = (row.original.pricing_unit ?? "m3") === "m2";
+      const price = isM2
+        ? Number(row.original.price_per_m2)
+        : Number(row.original.price_per_m3);
+      return (
+        <div className="text-end tabular-nums">
+          {formatIlsDense(price)}
+          {isM2 ? <span className="text-muted-foreground text-xs">/מ״ר</span> : null}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "customer_price",
     header: () => <div className="text-end">מחיר ללקוח</div>,
-    cell: ({ row }) => (
-      <div className="text-end font-medium tabular-nums">
-        {formatIls(Number(row.original.customer_price))}
-      </div>
-    ),
+    cell: ({ row }) => {
+      const isM2 = (row.original.pricing_unit ?? "m3") === "m2";
+      const price = isM2
+        ? Number(row.original.customer_price) * Number(row.original.height_m)
+        : Number(row.original.customer_price);
+      return (
+        <div className="text-end font-medium tabular-nums">
+          {formatIls(price)}
+          {isM2 ? <span className="text-muted-foreground text-xs">/מ״ר</span> : null}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "status",

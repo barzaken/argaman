@@ -1,3 +1,5 @@
+import { metersToCmInput } from "./calculations";
+
 export function normalizeHex(hex: string): string {
   const t = hex.trim().toLowerCase();
   return t.startsWith("#") ? t : `#${t}`;
@@ -28,6 +30,22 @@ export function formatIlsDense(n: number): string {
 export function formatMeters(n: number): string {
   return new Intl.NumberFormat("he-IL", {
     maximumFractionDigits: 3,
+  }).format(n);
+}
+
+/** מידות במטרים מהמסד → תצוגה בסנטימטרים (למשל 0.1×0.55×1.65 → 10×55×165) */
+export function formatDimensionsCmFromMeters(
+  lengthM: number,
+  widthM: number,
+  heightM: number
+): string {
+  return `${metersToCmInput(lengthM)}×${metersToCmInput(widthM)}×${metersToCmInput(heightM)}`;
+}
+
+export function formatAreaM2(n: number): string {
+  return new Intl.NumberFormat("he-IL", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
   }).format(n);
 }
 

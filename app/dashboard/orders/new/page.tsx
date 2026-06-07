@@ -5,7 +5,18 @@ import type { CustomerRow } from "@/lib/db/types";
 import type { InventoryItemViewRow } from "@/lib/db/types";
 import type { StoneRow } from "@/lib/db/types";
 
-export default async function NewOrderPage() {
+export default async function NewOrderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ inventory?: string }>;
+}) {
+  const { inventory: inventoryParam } = await searchParams;
+  const initialInventoryIds =
+    inventoryParam
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean) ?? [];
+
   const supabase = await createClient();
 
   const [{ data: customers }, { data: stones }, { data: inventory }, { data: overrides }] =
@@ -27,6 +38,7 @@ export default async function NewOrderPage() {
       stones={(stones ?? []) as StoneRow[]}
       inventory={(inventory ?? []) as InventoryItemViewRow[]}
       overrides={(overrides ?? []) as CustomerStonePriceRow[]}
+      initialInventoryIds={initialInventoryIds}
     />
   );
 }

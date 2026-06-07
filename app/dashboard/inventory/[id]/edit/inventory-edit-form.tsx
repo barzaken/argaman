@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   INVENTORY_FINISH_LEVEL_OPTIONS,
@@ -24,12 +25,14 @@ import type {
   InventoryFinishLevelDb,
   InventoryItemViewRow,
   InventoryPieceTypeDb,
+  InventoryPricingUnitDb,
   OrderItemViewRow,
   OrderStatusDb,
   StoneRow,
 } from "@/lib/db/types";
-import { formatIls } from "@/lib/db/format";
+import { formatAreaM2, formatIls } from "@/lib/db/format";
 import {
+  computeAreaM2FromCm,
   computeVolumeM3FromCm,
   metersToCmInput,
 } from "@/lib/db/calculations";
@@ -221,8 +224,22 @@ export function InventoryEditForm({
   const [widthCm, setWidthCm] = useState(metersToCmInput(Number(row.width_m)));
   const [heightCm, setHeightCm] = useState(metersToCmInput(Number(row.height_m)));
   const [quantity, setQuantity] = useState(String(row.quantity_total));
+  const [pricingUnit, setPricingUnit] = useState<InventoryPricingUnitDb>(
+    row.pricing_unit ?? "m3"
+  );
   const [pricePerM3, setPricePerM3] = useState(String(row.price_per_m3));
-  const [customerPrice, setCustomerPrice] = useState(String(row.customer_price));
+  const [pricePerM2, setPricePerM2] = useState(
+    row.price_per_m2 != null ? String(row.price_per_m2) : ""
+  );
+  const [customerPrice, setCustomerPrice] = useState(() => {
+    if (row.pricing_unit === "m2") {
+      return String(
+        Math.round(Number(row.customer_price) * Number(row.height_m) * 100) /
+          100
+      );
+    }
+    return String(row.customer_price);
+  });
   const [status, setStatus] = useState(row.status);
   const [finishLevel, setFinishLevel] = useState<InventoryFinishLevelDb>(
     row.finish_level ?? "halak"
@@ -250,6 +267,14 @@ export function InventoryEditForm({
     });
   }, [lengthCm, widthCm, heightCm, quantity]);
 
+  const areaPreview = useMemo(() => {
+    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
+    const W = parseFloat(widthCm.replace(",", ".")) || 0;
+    const Q = parseInt(quantity.replace(",", "."), 10) || 0;
+    if (!L || !W || !Q) return null;
+    return computeAreaM2FromCm({ lengthCm: L, widthCm: W, quantity: Q });
+  }, [lengthCm, widthCm, quantity]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setPending(true);
@@ -259,12 +284,19 @@ export function InventoryEditForm({
     fd.set("stone_id", row.stone_id);
     const L = parseFloat(lengthCm.replace(",", ".")) || 0;
     const W = parseFloat(widthCm.replace(",", ".")) || 0;
-    const H = parseFloat(heightCm.replace(",", ".")) || 0;
+    const H =
+      parseFloat(heightCm.replace(",", ".")) ||
+      (pricingUnit === "m2" ? 2 : 0);
     fd.set("length_m", String(L / 100));
     fd.set("width_m", String(W / 100));
     fd.set("height_m", String(H / 100));
     fd.set("quantity_total", quantity);
-    fd.set("price_per_m3", pricePerM3.replace(",", "."));
+    fd.set("pricing_unit", pricingUnit);
+    if (pricingUnit === "m3") {
+      fd.set("price_per_m3", pricePerM3.replace(",", "."));
+    } else {
+      fd.set("price_per_m2", pricePerM2.replace(",", "."));
+    }
     fd.set("customer_price", customerPrice.replace(",", "."));
     fd.set("status", status);
     fd.set("finish_level", finishLevel);
@@ -321,6 +353,22 @@ export function InventoryEditForm({
               title="מידות וכמות"
               className="flex-none justify-start py-6 lg:pt-2"
             >
+              <Tabs
+                value={pricingUnit}
+                onValueChange={(v) =>
+                  setPricingUnit(v as InventoryPricingUnitDb)
+                }
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="m3" className="flex-1">
+                    לפי קוב
+                  </TabsTrigger>
+                  <TabsTrigger value="m2" className="flex-1">
+                    לפי מ״ר
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               <div className="grid w-full gap-4 sm:grid-cols-2">
                 <Field label="רמת גימור">
                   <Select
@@ -366,17 +414,35 @@ export function InventoryEditForm({
                 </Field>
               </div>
 
-              <div className="grid w-full gap-4 sm:grid-cols-3">
-                <Field label="גובה / עובי (ס״מ)">
-                  <Input
-                    dir="ltr"
-                    inputMode="decimal"
-                    value={heightCm}
-                    onChange={(e) => setHeightCm(e.target.value)}
-                    step="any"
-                    required
-                  />
-                </Field>
+              <div
+                className={cn(
+                  "grid w-full gap-4",
+                  pricingUnit === "m3" ? "sm:grid-cols-3" : "sm:grid-cols-2"
+                )}
+              >
+                {pricingUnit === "m3" ? (
+                  <Field label="גובה / עובי (ס״מ)">
+                    <Input
+                      dir="ltr"
+                      inputMode="decimal"
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(e.target.value)}
+                      step="any"
+                      required
+                    />
+                  </Field>
+                ) : (
+                  <Field label="עובי (ס״מ)">
+                    <Input
+                      dir="ltr"
+                      inputMode="decimal"
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(e.target.value)}
+                      placeholder="2"
+                      step="any"
+                    />
+                  </Field>
+                )}
                 <Field label="רוחב (ס״מ)">
                   <Input
                     dir="ltr"
@@ -412,14 +478,25 @@ export function InventoryEditForm({
                     required
                   />
                 </Field>
-                <Field label="נפח משוער (קו״ב)" className="justify-end">
+                <Field
+                  label={
+                    pricingUnit === "m3"
+                      ? "נפח משוער (קו״ב)"
+                      : "שטח פנים (מ״ר)"
+                  }
+                  className="justify-end"
+                >
                   <div className="flex h-8 items-center rounded-lg border border-dashed border-border bg-muted/40 px-2.5 tabular-nums text-sm font-medium">
-                    {volumePreview != null
-                      ? new Intl.NumberFormat("he-IL", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 4,
-                      }).format(volumePreview)
-                      : "—"}
+                    {pricingUnit === "m3"
+                      ? volumePreview != null
+                        ? new Intl.NumberFormat("he-IL", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          }).format(volumePreview)
+                        : "—"
+                      : areaPreview != null
+                        ? formatAreaM2(areaPreview)
+                        : "—"}
                   </div>
                 </Field>
               </div>
@@ -431,16 +508,34 @@ export function InventoryEditForm({
                   מחירים
                 </h3>
                 <div className="grid w-full gap-4 sm:grid-cols-2">
-                  <Field label="מחיר לקו״ב (₪)">
-                    <Input
-                      dir="ltr"
-                      inputMode="decimal"
-                      value={pricePerM3}
-                      onChange={(e) => setPricePerM3(e.target.value)}
-                      required
-                    />
-                  </Field>
-                  <Field label="מחיר ללקוח (₪)">
+                  {pricingUnit === "m3" ? (
+                    <Field label="מחיר לקו״ב (₪)">
+                      <Input
+                        dir="ltr"
+                        inputMode="decimal"
+                        value={pricePerM3}
+                        onChange={(e) => setPricePerM3(e.target.value)}
+                        required
+                      />
+                    </Field>
+                  ) : (
+                    <Field label="מחיר למ״ר (₪)">
+                      <Input
+                        dir="ltr"
+                        inputMode="decimal"
+                        value={pricePerM2}
+                        onChange={(e) => setPricePerM2(e.target.value)}
+                        required
+                      />
+                    </Field>
+                  )}
+                  <Field
+                    label={
+                      pricingUnit === "m3"
+                        ? "מחיר ללקוח (₪)"
+                        : "מחיר ללקוח למ״ר (₪)"
+                    }
+                  >
                     <Input
                       dir="ltr"
                       inputMode="decimal"

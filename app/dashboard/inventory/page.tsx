@@ -1,12 +1,8 @@
-import { CrmDataTable } from "@/components/crm/data-table";
 import { KpiCard } from "@/components/kpi-card";
 import { createClient } from "@/lib/supabase/server";
 
-import {
-  inventoryColumnLabels,
-  inventoryColumns,
-  type InventoryRow,
-} from "./columns";
+import { type InventoryRow } from "./columns";
+import { InventoryTable } from "./inventory-table";
 
 export default async function InventoryPage() {
   const supabase = await createClient();
@@ -44,14 +40,7 @@ export default async function InventoryPage() {
           {error ? (
             <p className="text-destructive text-sm">{error.message}</p>
           ) : (
-            <CrmDataTable
-              columns={inventoryColumns}
-              data={list}
-              filterColumnId="stone_name"
-              filterPlaceholder="סנן לפי שם האבן..."
-              columnLabels={inventoryColumnLabels}
-              navigateRows="inventory-edit"
-            />
+            <InventoryTable data={list} />
           )}
         </div>
       </div>
