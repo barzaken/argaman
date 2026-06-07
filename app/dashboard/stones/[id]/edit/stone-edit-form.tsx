@@ -22,7 +22,11 @@ import {
   type OrderStatusDb,
   type OrderViewRow,
 } from "@/lib/db/types";
-import { formatIls, normalizeHex } from "@/lib/db/format";
+import {
+  formatDimensionsCmFromMeters,
+  formatIls,
+  normalizeHex,
+} from "@/lib/db/format";
 import { cn } from "@/lib/utils";
 
 const inventoryStatusLabels: Record<InventoryStatusDb, string> = {
@@ -96,7 +100,13 @@ function StoneRelatedTabs({
                       row.finish_level,
                       row.piece_type
                     )}{" "}
-                    · מידות {row.length_m}×{row.width_m}×{row.height_m} מ׳ · סה״כ{" "}
+                    · מידות{" "}
+                    {formatDimensionsCmFromMeters(
+                      Number(row.length_m),
+                      Number(row.width_m),
+                      Number(row.height_m)
+                    )}{" "}
+                    ס״מ · סה״כ{" "}
                     {row.quantity_total} · זמין {row.quantity_available} ·
                     מוזמן {row.quantity_reserved}
                   </p>

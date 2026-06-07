@@ -13,7 +13,12 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import type { DeliveryItemRow } from "@/lib/db/types";
 import type { DeliveryViewRow } from "@/lib/db/types";
-import { formatIls, formatIssueDate, formatVolumeM3 } from "@/lib/db/format";
+import {
+  formatDimensionsCmFromMeters,
+  formatIls,
+  formatIssueDate,
+  formatVolumeM3,
+} from "@/lib/db/format";
 
 export default async function DeliveryDetailPage({
   params,
@@ -143,7 +148,11 @@ export default async function DeliveryDetailPage({
                 <TableRow key={ln.id}>
                   <TableCell>{ln.stone_name}</TableCell>
                   <TableCell className="tabular-nums">
-                    {ln.length_m}×{ln.width_m}×{ln.height_m}
+                    {formatDimensionsCmFromMeters(
+                      Number(ln.length_m),
+                      Number(ln.width_m),
+                      Number(ln.height_m)
+                    )}
                   </TableCell>
                   <TableCell className="text-end tabular-nums">
                     {ln.quantity}

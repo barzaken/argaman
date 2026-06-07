@@ -33,7 +33,33 @@ export default async function OrderDetailPage({
 
   if (!customer) notFound();
 
-  const lines = (items ?? []) as OrderItemViewRow[];
+  const rawLines = (items ?? []) as OrderItemViewRow[];
+  const inventoryIds = [
+    ...new Set(rawLines.map((ln) => ln.inventory_item_id)),
+  ];
+
+  const { data: inventoryPricing } =
+    inventoryIds.length > 0
+      ? await supabase
+          .from("inventory_items")
+          .select("id, pricing_unit, price_per_m2")
+          .in("id", inventoryIds)
+      : { data: [] };
+
+  const pricingByInventoryId = new Map(
+    (inventoryPricing ?? []).map((row) => [row.id, row])
+  );
+
+  const lines = rawLines.map((ln) => {
+    const inv = pricingByInventoryId.get(ln.inventory_item_id);
+    return {
+      ...ln,
+      inventory_pricing_unit:
+        ln.inventory_pricing_unit ?? inv?.pricing_unit ?? "m3",
+      inventory_price_per_m2:
+        ln.inventory_price_per_m2 ?? inv?.price_per_m2 ?? null,
+    };
+  });
 
   return (
     <OrderDocument

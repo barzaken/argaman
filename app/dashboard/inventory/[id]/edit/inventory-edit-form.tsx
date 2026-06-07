@@ -228,11 +228,21 @@ export function InventoryEditForm({
     row.pricing_unit ?? "m3"
   );
   const [pricePerM3, setPricePerM3] = useState(String(row.price_per_m3));
-  const [pricePerM2, setPricePerM2] = useState(
-    row.price_per_m2 != null ? String(row.price_per_m2) : ""
-  );
+  const [pricePerM2, setPricePerM2] = useState(() => {
+    if (row.price_per_m2 != null) return String(row.price_per_m2);
+    if (
+      (row.pricing_unit ?? "m3") === "m2" &&
+      Number(row.height_m) > 0
+    ) {
+      return String(
+        Math.round(Number(row.price_per_m3) * Number(row.height_m) * 100) /
+          100
+      );
+    }
+    return "";
+  });
   const [customerPrice, setCustomerPrice] = useState(() => {
-    if (row.pricing_unit === "m2") {
+    if ((row.pricing_unit ?? "m3") === "m2") {
       return String(
         Math.round(Number(row.customer_price) * Number(row.height_m) * 100) /
           100
@@ -317,10 +327,10 @@ export function InventoryEditForm({
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-background">
       <form
         onSubmit={handleSubmit}
-        className="flex min-h-0 flex-1 flex-col overflow-auto"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch">
-          <div className="flex min-h-0 w-full flex-col lg:w-[min(100%,26rem)] lg:shrink-0 lg:border-e lg:border-border xl:w-[min(100%,28rem)]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:items-stretch">
+          <div className="flex min-h-0 w-full flex-col overflow-y-auto lg:w-[min(100%,26rem)] lg:shrink-0 lg:border-e lg:border-border xl:w-[min(100%,28rem)]">
             <Section
               title="אבן מהקטלוג"
               className="flex-none justify-start border-b border-border py-6 lg:border-b-0 lg:pb-5"
@@ -351,13 +361,28 @@ export function InventoryEditForm({
 
             <Section
               title="מידות וכמות"
-              className="flex-none justify-start py-6 lg:pt-2"
+              className="flex-none justify-start py-6 pb-8 lg:pt-2"
             >
               <Tabs
                 value={pricingUnit}
-                onValueChange={(v) =>
-                  setPricingUnit(v as InventoryPricingUnitDb)
-                }
+                onValueChange={(v) => {
+                  const next = v as InventoryPricingUnitDb;
+                  setPricingUnit(next);
+                  if (next === "m2" && !pricePerM2.trim()) {
+                    const H = parseFloat(heightCm.replace(",", ".")) || 0;
+                    const heightM = H / 100;
+                    if (heightM > 0) {
+                      const derived =
+                        Math.round(
+                          parseFloat(pricePerM3.replace(",", ".")) * heightM *
+                            100
+                        ) / 100;
+                      if (!Number.isNaN(derived) && derived > 0) {
+                        setPricePerM2(String(derived));
+                      }
+                    }
+                  }
+                }}
               >
                 <TabsList className="w-full">
                   <TabsTrigger value="m3" className="flex-1">
@@ -549,7 +574,7 @@ export function InventoryEditForm({
             </Section>
           </div>
 
-          <div className="flex min-h-[min(40vh,24rem)] flex-1 flex-col border-t border-border lg:min-h-0 lg:border-t-0">
+          <div className="flex min-h-[min(40vh,24rem)] flex-1 flex-col overflow-hidden border-t border-border lg:min-h-0 lg:border-t-0">
             <InventoryOrdersPanel
               deliveryQuantityTotal={row.quantity_total}
               orderItemRows={orderItemRows}

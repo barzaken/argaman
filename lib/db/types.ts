@@ -133,6 +133,8 @@ export type OrderItemViewRow = {
   stone_name: string;
   stone_color_hex: string;
   inventory_shipment_volume_m3: number;
+  inventory_pricing_unit: InventoryPricingUnitDb;
+  inventory_price_per_m2: number | null;
 };
 
 export type DeliveryViewRow = {

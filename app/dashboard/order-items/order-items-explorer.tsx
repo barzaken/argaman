@@ -20,7 +20,10 @@ import type {
   OrderItemViewRow,
   PriorityDb,
 } from "@/lib/db/types";
-import { formatVolumeM3 } from "@/lib/db/format";
+import {
+  formatDimensionsCmFromMeters,
+  formatVolumeM3,
+} from "@/lib/db/format";
 import { ChevronDown } from "lucide-react";
 import { updateOrderItemStatus } from "@/app/dashboard/orders/actions";
 import { ErrorDialog } from "@/components/error-dialog";
@@ -173,7 +176,12 @@ export function OrderItemsExplorer({
                             <div className="min-w-0 flex-1">
                               <p className="font-medium">{ln.stone_name}</p>
                               <p className="text-muted-foreground text-xs">
-                                מידות {ln.length_m}×{ln.width_m}×{ln.height_m}{" "}
+                                מידות{" "}
+                                {formatDimensionsCmFromMeters(
+                                  Number(ln.length_m),
+                                  Number(ln.width_m),
+                                  Number(ln.height_m)
+                                )}{" "}
                                 · כמות {ln.quantity} · נפח{" "}
                                 {formatVolumeM3(Number(ln.volume_m3))} קו״ב
                               </p>

@@ -109,15 +109,18 @@ export function CrmDataTable<
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
-    enableRowSelection: enableRowSelection
-      ? (row) => (getRowCanSelect ? getRowCanSelect(row.original) : true)
-      : false,
-    getRowId: (row) => row.id,
-    onRowSelectionChange: setSelectionState,
+    ...(enableRowSelection
+      ? {
+          enableRowSelection: (row: { original: TData }) =>
+            getRowCanSelect ? getRowCanSelect(row.original) : true,
+          getRowId: (row: TData) => row.id,
+          onRowSelectionChange: setSelectionState,
+        }
+      : { enableRowSelection: false }),
     state: {
       columnFilters,
       columnVisibility,
-      rowSelection: enableRowSelection ? selectionState : undefined,
+      ...(enableRowSelection ? { rowSelection: selectionState } : {}),
     },
   });
 
@@ -194,7 +197,11 @@ export function CrmDataTable<
                 return (
                   <TableRow
                     key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
+                    data-state={
+                      enableRowSelection && row.getIsSelected()
+                        ? "selected"
+                        : undefined
+                    }
                     className={cn(href && "cursor-pointer hover:bg-muted/60")}
                     onClick={() => {
                       if (href) router.push(href);

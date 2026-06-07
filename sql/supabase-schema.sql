@@ -286,7 +286,9 @@ SELECT
   c.name AS customer_name,
   s.name AS stone_name,
   s.color_hex AS stone_color_hex,
-  inv.volume_m3 AS inventory_shipment_volume_m3
+  inv.volume_m3 AS inventory_shipment_volume_m3,
+  inv.pricing_unit AS inventory_pricing_unit,
+  inv.price_per_m2 AS inventory_price_per_m2
 FROM public.order_items oi
 JOIN public.orders o ON o.id = oi.order_id
 JOIN public.customers c ON c.id = o.customer_id

@@ -14,9 +14,9 @@ import {
 } from "@/lib/db/inventory-taxonomy";
 import {
   formatAreaM2,
+  formatDimensionsCmFromMeters,
   formatIls,
   formatIlsDense,
-  formatMeters,
   formatVolumeM3,
   normalizeHex,
 } from "@/lib/db/format";
@@ -176,15 +176,22 @@ export const inventoryColumns: ColumnDef<InventoryRow>[] = [
   },
   {
     id: "dimensions",
-    header: "מידות (מ׳)",
+    header: "מידות (ס״מ)",
     accessorFn: (row) =>
-      `${row.length_m}×${row.width_m}×${row.height_m}`,
+      formatDimensionsCmFromMeters(
+        Number(row.length_m),
+        Number(row.width_m),
+        Number(row.height_m)
+      ),
     cell: ({ row }) => {
       const { length_m, width_m, height_m } = row.original;
       return (
         <span className="tabular-nums">
-          {formatMeters(Number(length_m))}×{formatMeters(Number(width_m))}×
-          {formatMeters(Number(height_m))}
+          {formatDimensionsCmFromMeters(
+            Number(length_m),
+            Number(width_m),
+            Number(height_m)
+          )}
         </span>
       );
     },
