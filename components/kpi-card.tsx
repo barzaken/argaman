@@ -66,7 +66,7 @@ export function KpiCard({
     valueType === "currency" ? formatIls(value) : String(value);
 
   return (
-    <section className="flex min-h-[7.5rem] flex-col justify-between border-l border-border bg-background p-5">
+    <section className="flex min-h-[7.5rem] flex-col justify-between border-l border-border bg-background p-5 border-b">
       <div className="flex items-center gap-2">
         <Icon
           className="size-5 shrink-0 text-zinc-300 dark:text-zinc-600"

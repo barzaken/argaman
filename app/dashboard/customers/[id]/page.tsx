@@ -133,7 +133,7 @@ export default async function CustomerDetailPage({
         </Link>
       </div>
 
-      <div className="grid border-b border-border sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid border-b border-border grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="הזמנות"
           value={orderList.length}

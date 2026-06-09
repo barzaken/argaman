@@ -46,7 +46,7 @@ export default async function OrdersPage() {
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
-      <div className="grid border-b sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid border-b grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="הזמנות פתוחות"
           value={openOrdersCount}

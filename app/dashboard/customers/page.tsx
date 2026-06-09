@@ -47,7 +47,7 @@ export default async function CustomersPage() {
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
-      <div className="grid border-b sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid border-b grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="לקוחות פעילים"
           value={rows.length}

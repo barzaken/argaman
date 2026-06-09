@@ -32,10 +32,10 @@ export function PageHeader({ className }: { className?: string }) {
       )}
     >
       <div className="flex shrink-0 items-center gap-2">
+        <SidebarTrigger className="shrink-0 sm:hidden" />
         <div className="flex size-8 items-center justify-center">
           <Icon className="size-4 shrink-0 text-foreground" aria-hidden />
         </div>
-        <SidebarTrigger className="shrink-0 sm:hidden" />
       </div>
       <h1 className="min-w-0 flex-1 truncate text-start text-sm font-semibold sm:text-base">
         {title}

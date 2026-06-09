@@ -98,36 +98,6 @@ async function renderSheetInIframe(
   };
 }
 
-function unclipAncestors(sheetEl: HTMLElement): () => void {
-  const restored: Array<{
-    el: HTMLElement;
-    overflow: string;
-    overflowY: string;
-  }> = [];
-
-  let parent = sheetEl.parentElement;
-  while (parent && parent !== document.body) {
-    const cs = getComputedStyle(parent);
-    if (cs.overflow !== "visible" || cs.overflowY !== "visible") {
-      restored.push({
-        el: parent,
-        overflow: parent.style.overflow,
-        overflowY: parent.style.overflowY,
-      });
-      parent.style.overflow = "visible";
-      parent.style.overflowY = "visible";
-    }
-    parent = parent.parentElement;
-  }
-
-  return () => {
-    for (const { el, overflow, overflowY } of restored) {
-      el.style.overflow = overflow;
-      el.style.overflowY = overflowY;
-    }
-  };
-}
-
 async function canvasFromElement(element: HTMLElement): Promise<HTMLCanvasElement> {
   const ownerDoc = element.ownerDocument;
   if (ownerDoc.fonts?.ready) {
@@ -156,17 +126,27 @@ async function canvasFromElement(element: HTMLElement): Promise<HTMLCanvasElemen
   });
 }
 
-async function captureSheetCanvas(sheetEl: HTMLElement): Promise<HTMLCanvasElement> {
-  const restoreOverflow = unclipAncestors(sheetEl);
+/** Renders the sheet at fixed A4 width so print and PDF export match on all devices. */
+async function captureSheetForExport(
+  sheetEl: HTMLElement
+): Promise<HTMLCanvasElement> {
+  const { target, cleanup } = await renderSheetInIframe(sheetEl);
   try {
-    const canvas = await canvasFromElement(sheetEl);
+    await waitForFonts(target.ownerDocument);
+    const canvas = await canvasFromElement(target);
     if (!canvas.width || !canvas.height) {
       throw new Error("יצירת תמונה נכשלה");
     }
     return canvas;
   } finally {
-    restoreOverflow();
+    cleanup();
   }
+}
+
+function createOrderDocumentPdf(canvas: HTMLCanvasElement): jsPDF {
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  addCanvasToPdf(canvas, pdf);
+  return pdf;
 }
 
 function addCanvasToPdf(canvas: HTMLCanvasElement, pdf: jsPDF): void {
@@ -204,24 +184,62 @@ function addCanvasToPdf(canvas: HTMLCanvasElement, pdf: jsPDF): void {
 }
 
 export async function printOrderDocument(sheetEl: HTMLElement): Promise<void> {
-  const { iframe, cleanup } = await renderSheetInIframe(sheetEl);
-  const win = iframe.contentWindow;
+  const canvas = await captureSheetForExport(sheetEl);
+  const pdf = createOrderDocumentPdf(canvas);
+  const url = URL.createObjectURL(pdf.output("blob"));
 
-  if (!win) {
-    cleanup();
-    throw new Error("לא ניתן לפתוח חלון הדפסה");
-  }
+  const printFrame = document.createElement("iframe");
+  printFrame.setAttribute("aria-hidden", "true");
+  // Keep in viewport (not off-screen) so mobile browsers print the PDF, not the page.
+  printFrame.style.cssText =
+    "position:fixed;inset:0;width:100%;height:100%;border:0;opacity:0;pointer-events:none;z-index:2147483647;";
+  document.body.appendChild(printFrame);
 
-  await new Promise<void>((resolve) => {
-    const done = () => {
-      win.removeEventListener("afterprint", done);
-      cleanup();
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      printFrame.remove();
       resolve();
     };
-    win.addEventListener("afterprint", done);
-    win.focus();
-    win.print();
-    setTimeout(done, 60_000);
+
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      printFrame.remove();
+      reject(new Error(message));
+    };
+
+    const timeout = window.setTimeout(finish, 60_000);
+
+    printFrame.onerror = () => {
+      window.clearTimeout(timeout);
+      fail("לא ניתן לפתוח חלון הדפסה");
+    };
+
+    printFrame.onload = () => {
+      const win = printFrame.contentWindow;
+      if (!win) {
+        window.clearTimeout(timeout);
+        fail("לא ניתן לפתוח חלון הדפסה");
+        return;
+      }
+
+      const done = () => {
+        win.removeEventListener("afterprint", done);
+        window.clearTimeout(timeout);
+        finish();
+      };
+      win.addEventListener("afterprint", done);
+      win.focus();
+      win.print();
+    };
+
+    printFrame.src = url;
   });
 }
 
@@ -229,24 +247,7 @@ export async function downloadOrderDocumentPdf(
   sheetEl: HTMLElement,
   orderNumber: number
 ): Promise<void> {
-  let canvas: HTMLCanvasElement;
-
-  try {
-    canvas = await captureSheetCanvas(sheetEl);
-  } catch {
-    const { target, cleanup } = await renderSheetInIframe(sheetEl);
-    try {
-      await waitForFonts(target.ownerDocument);
-      canvas = await canvasFromElement(target);
-      if (!canvas.width || !canvas.height) {
-        throw new Error("יצירת תמונה נכשלה");
-      }
-    } finally {
-      cleanup();
-    }
-  }
-
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  addCanvasToPdf(canvas, pdf);
+  const canvas = await captureSheetForExport(sheetEl);
+  const pdf = createOrderDocumentPdf(canvas);
   pdf.save(`תעודת-הזמנה-${orderNumber}.pdf`);
 }

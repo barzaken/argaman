@@ -25,7 +25,7 @@ export default async function InventoryPage() {
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
-      <div className="grid border-b sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid border-b grid-cols-2 xl:grid-cols-4">
         <KpiCard label="פריטים במלאי" value={totalItems} icon="package" />
         <KpiCard
           label="זמינים במלאי"
