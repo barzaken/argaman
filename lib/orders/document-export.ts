@@ -183,7 +183,7 @@ function addCanvasToPdf(canvas: HTMLCanvasElement, pdf: jsPDF): void {
   }
 }
 
-export async function printOrderDocument(sheetEl: HTMLElement): Promise<void> {
+export async function printDocument(sheetEl: HTMLElement): Promise<void> {
   const canvas = await captureSheetForExport(sheetEl);
   const pdf = createOrderDocumentPdf(canvas);
   const url = URL.createObjectURL(pdf.output("blob"));
@@ -243,11 +243,28 @@ export async function printOrderDocument(sheetEl: HTMLElement): Promise<void> {
   });
 }
 
+export async function downloadDocumentPdf(
+  sheetEl: HTMLElement,
+  filename: string
+): Promise<void> {
+  const canvas = await captureSheetForExport(sheetEl);
+  const pdf = createOrderDocumentPdf(canvas);
+  pdf.save(filename);
+}
+
+/** @deprecated Use {@link printDocument} */
+export const printOrderDocument = printDocument;
+
 export async function downloadOrderDocumentPdf(
   sheetEl: HTMLElement,
   orderNumber: number
 ): Promise<void> {
-  const canvas = await captureSheetForExport(sheetEl);
-  const pdf = createOrderDocumentPdf(canvas);
-  pdf.save(`תעודת-הזמנה-${orderNumber}.pdf`);
+  await downloadDocumentPdf(sheetEl, `תעודת-הזמנה-${orderNumber}.pdf`);
+}
+
+export async function downloadDeliveryDocumentPdf(
+  sheetEl: HTMLElement,
+  deliveryNumber: number
+): Promise<void> {
+  await downloadDocumentPdf(sheetEl, `תעודת-משלוח-${deliveryNumber}.pdf`);
 }
