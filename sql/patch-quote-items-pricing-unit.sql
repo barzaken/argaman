@@ -1,56 +1,37 @@
--- One-time migration: quotes (הצעות מחיר) — catalog-based, no inventory at creation.
--- Run in Supabase SQL Editor after existing schema is applied.
+-- Quote line pricing: m³ / m² / unit (יחידה).
+-- Run after patch-quotes.sql if quotes already exist.
 
-CREATE TYPE public.quote_status AS ENUM ('open', 'converted', 'cancelled');
-CREATE TYPE public.quote_pricing_unit AS ENUM ('m3', 'm2', 'unit');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'quote_pricing_unit') THEN
+    CREATE TYPE public.quote_pricing_unit AS ENUM ('m3', 'm2', 'unit');
+  END IF;
+END $$;
 
-CREATE SEQUENCE IF NOT EXISTS quote_number_seq START WITH 1000 INCREMENT BY 1;
+-- Views using qi.* must be dropped before altering generated columns.
+DROP VIEW IF EXISTS public.quote_items_view;
 
-CREATE TABLE public.quotes (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  quote_number bigint NOT NULL DEFAULT nextval('quote_number_seq'),
-  customer_id uuid NOT NULL REFERENCES public.customers(id),
-  status public.quote_status NOT NULL DEFAULT 'open',
-  valid_until date,
-  notes text,
-  vat_rate numeric(5,4) NOT NULL DEFAULT 0.18,
-  vat_included boolean NOT NULL DEFAULT false,
-  subtotal numeric(12,2) NOT NULL DEFAULT 0,
-  vat_amount numeric(12,2) NOT NULL DEFAULT 0,
-  total numeric(12,2) NOT NULL DEFAULT 0,
-  converted_order_id uuid REFERENCES public.orders(id),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+ALTER TABLE public.quote_items
+  ADD COLUMN IF NOT EXISTS pricing_unit public.quote_pricing_unit NOT NULL DEFAULT 'm3',
+  ADD COLUMN IF NOT EXISTS price_per_m2 numeric(12,2),
+  ADD COLUMN IF NOT EXISTS price_per_unit numeric(12,2);
 
-ALTER SEQUENCE quote_number_seq OWNED BY quotes.quote_number;
+ALTER TABLE public.quote_items
+  ALTER COLUMN price_per_m3 DROP NOT NULL;
 
-CREATE TRIGGER quotes_set_updated_at
-  BEFORE UPDATE ON public.quotes
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+ALTER TABLE public.quote_items
+  DROP COLUMN IF EXISTS area_m2;
 
-CREATE INDEX quotes_customer_id_idx ON public.quotes(customer_id);
-CREATE INDEX quotes_status_idx ON public.quotes(status);
-
-CREATE TABLE public.quote_items (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  quote_id uuid NOT NULL REFERENCES public.quotes(id) ON DELETE CASCADE,
-  stone_id uuid NOT NULL REFERENCES public.stones(id),
-  pricing_unit public.quote_pricing_unit NOT NULL DEFAULT 'm3',
-  length_m numeric(10,3) NOT NULL,
-  width_m numeric(10,3) NOT NULL,
-  height_m numeric(10,3) NOT NULL,
-  quantity integer NOT NULL,
-  volume_m3 numeric(12,4) GENERATED ALWAYS AS (
-    ROUND((length_m * width_m * height_m * quantity)::numeric, 4)
-  ) STORED,
-  area_m2 numeric(12,4) GENERATED ALWAYS AS (
+ALTER TABLE public.quote_items
+  ADD COLUMN area_m2 numeric(12,4) GENERATED ALWAYS AS (
     ROUND((length_m * width_m * quantity)::numeric, 4)
-  ) STORED,
-  price_per_m3 numeric(12,2),
-  price_per_m2 numeric(12,2),
-  price_per_unit numeric(12,2),
-  line_subtotal numeric(12,2) GENERATED ALWAYS AS (
+  ) STORED;
+
+ALTER TABLE public.quote_items
+  DROP COLUMN IF EXISTS line_subtotal;
+
+ALTER TABLE public.quote_items
+  ADD COLUMN line_subtotal numeric(12,2) GENERATED ALWAYS AS (
     CASE pricing_unit
       WHEN 'm3'::public.quote_pricing_unit THEN
         ROUND((length_m * width_m * height_m * quantity * price_per_m3)::numeric, 2)
@@ -59,14 +40,13 @@ CREATE TABLE public.quote_items (
       WHEN 'unit'::public.quote_pricing_unit THEN
         ROUND((quantity * price_per_unit)::numeric, 2)
     END
-  ) STORED,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT quote_items_dims_chk CHECK (
-    length_m > 0 AND width_m > 0 AND height_m > 0
-  ),
-  CONSTRAINT quote_items_qty_chk CHECK (quantity > 0),
-  CONSTRAINT quote_items_pricing_prices_chk CHECK (
+  ) STORED;
+
+ALTER TABLE public.quote_items
+  DROP CONSTRAINT IF EXISTS quote_items_pricing_prices_chk;
+
+ALTER TABLE public.quote_items
+  ADD CONSTRAINT quote_items_pricing_prices_chk CHECK (
     (pricing_unit = 'm3'::public.quote_pricing_unit
       AND price_per_m3 IS NOT NULL
       AND price_per_m2 IS NULL
@@ -79,31 +59,7 @@ CREATE TABLE public.quote_items (
       AND price_per_unit IS NOT NULL
       AND price_per_m3 IS NULL
       AND price_per_m2 IS NULL)
-  )
-);
-
-CREATE TRIGGER quote_items_set_updated_at
-  BEFORE UPDATE ON public.quote_items
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
-CREATE INDEX quote_items_quote_id_idx ON public.quote_items(quote_id);
-CREATE INDEX quote_items_stone_id_idx ON public.quote_items(stone_id);
-
--- -----------------------------------------------------------------------------
--- VIEWS
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.quotes_view AS
-SELECT
-  q.*,
-  c.name AS customer_name,
-  c.phone AS customer_phone,
-  c.email AS customer_email,
-  (q.converted_order_id IS NOT NULL) AS has_order,
-  (SELECT COUNT(*)::integer FROM public.quote_items qi WHERE qi.quote_id = q.id) AS item_count,
-  o.order_number AS converted_order_number
-FROM public.quotes q
-JOIN public.customers c ON c.id = q.customer_id
-LEFT JOIN public.orders o ON o.id = q.converted_order_id;
+  );
 
 CREATE OR REPLACE VIEW public.quote_items_view AS
 SELECT
@@ -122,9 +78,7 @@ JOIN public.quotes q ON q.id = qi.quote_id
 JOIN public.customers c ON c.id = q.customer_id
 JOIN public.stones s ON s.id = qi.stone_id;
 
--- -----------------------------------------------------------------------------
 -- Helper: normalize quote line price to order price_per_m3
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.quote_item_price_per_m3_for_order(
   p_pricing_unit public.quote_pricing_unit,
   p_length_m numeric,
@@ -149,9 +103,6 @@ AS $$
   END;
 $$;
 
--- -----------------------------------------------------------------------------
--- RPC: create quote + items (atomic)
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.crm_create_quote_with_items(
   p_customer_id uuid,
   p_valid_until date,
@@ -290,9 +241,6 @@ BEGIN
 END;
 $$;
 
--- -----------------------------------------------------------------------------
--- RPC: update quote + replace items (only when open)
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.crm_update_quote_with_items(
   p_quote_id uuid,
   p_customer_id uuid,
@@ -442,35 +390,6 @@ BEGIN
 END;
 $$;
 
--- -----------------------------------------------------------------------------
--- RPC: delete quote (not converted)
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.crm_delete_quote(p_quote_id uuid)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY INVOKER
-SET search_path = public
-AS $$
-DECLARE
-  v_status public.quote_status;
-BEGIN
-  SELECT status INTO v_status FROM public.quotes WHERE id = p_quote_id FOR UPDATE;
-
-  IF v_status IS NULL THEN
-    RAISE EXCEPTION 'quote not found';
-  END IF;
-
-  IF v_status = 'converted'::public.quote_status THEN
-    RAISE EXCEPTION 'cannot delete converted quote';
-  END IF;
-
-  DELETE FROM public.quotes WHERE id = p_quote_id;
-END;
-$$;
-
--- -----------------------------------------------------------------------------
--- RPC: convert quote to order + reserve inventory (atomic)
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.crm_create_order_from_quote(
   p_quote_id uuid,
   p_priority public.priority,
@@ -605,22 +524,6 @@ BEGIN
 END;
 $$;
 
--- -----------------------------------------------------------------------------
--- RLS
--- -----------------------------------------------------------------------------
-ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.quote_items ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY quotes_authenticated_all ON public.quotes
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-CREATE POLICY quote_items_authenticated_all ON public.quote_items
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-GRANT EXECUTE ON FUNCTION public.crm_create_quote_with_items(uuid, date, text, numeric, boolean, jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.crm_update_quote_with_items(uuid, uuid, date, text, numeric, boolean, jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.crm_delete_quote(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.crm_create_order_from_quote(uuid, public.priority, date, text, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.quote_item_price_per_m3_for_order(
   public.quote_pricing_unit, numeric, numeric, numeric, numeric, numeric, numeric
 ) TO authenticated;

@@ -21,6 +21,8 @@ export type OrderItemStatusDb =
   | "in_progress"
   | "completed"
   | "cancelled";
+/** יחידת תמחור להצעת מחיר */
+export type QuotePricingUnitDb = "m3" | "m2" | "unit";
 export type QuoteStatusDb = "open" | "converted" | "cancelled";
 export type PriorityDb = "low" | "medium" | "urgent";
 export type FulfillmentMethodDb = "pickup" | "shipping";
@@ -134,12 +136,16 @@ export type QuoteItemViewRow = {
   id: string;
   quote_id: string;
   stone_id: string;
+  pricing_unit: QuotePricingUnitDb;
   length_m: number;
   width_m: number;
   height_m: number;
   quantity: number;
   volume_m3: number;
-  price_per_m3: number;
+  area_m2: number;
+  price_per_m3: number | null;
+  price_per_m2: number | null;
+  price_per_unit: number | null;
   line_subtotal: number;
   quote_number: number;
   customer_id: string;

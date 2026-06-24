@@ -68,6 +68,60 @@ export function computeLineSubtotal(
   return roundMoney(volumeM3 * pricePerM3);
 }
 
+export type QuotePricingUnit = "m3" | "m2" | "unit";
+
+export function computeQuoteLineSubtotal(
+  pricingUnit: QuotePricingUnit,
+  item: {
+    lengthCm: number;
+    widthCm: number;
+    heightCm: number;
+    quantity: number;
+  },
+  price: number
+): number {
+  if (pricingUnit === "m3") {
+    const vol = computeVolumeM3FromCm({
+      lengthCm: item.lengthCm,
+      widthCm: item.widthCm,
+      heightCm: item.heightCm,
+      quantity: item.quantity,
+    });
+    return computeLineSubtotal(vol, price);
+  }
+  if (pricingUnit === "m2") {
+    const area = computeAreaM2FromCm({
+      lengthCm: item.lengthCm,
+      widthCm: item.widthCm,
+      quantity: item.quantity,
+    });
+    return roundMoney(area * price);
+  }
+  return roundMoney(item.quantity * price);
+}
+
+export function quotePriceLabel(unit: QuotePricingUnit): string {
+  switch (unit) {
+    case "m3":
+      return "מחיר לקו״ב (₪)";
+    case "m2":
+      return "מחיר למ״ר (₪)";
+    case "unit":
+      return "מחיר ליחידה (₪)";
+  }
+}
+
+export function quoteMeasurePreviewLabel(unit: QuotePricingUnit): string {
+  switch (unit) {
+    case "m3":
+      return "נפח (קו״ב)";
+    case "m2":
+      return "שטח (מ״ר)";
+    case "unit":
+      return "כמות";
+  }
+}
+
 /** מחושב על בסיס סכום לפני מע״מ */
 export function computeVatAmount(
   subtotalExVat: number,

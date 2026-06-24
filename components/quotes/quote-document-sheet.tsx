@@ -7,6 +7,7 @@ import "@/lib/orders/document-print.css";
 import { BRAND_CONTACT, BRAND_NAME } from "@/lib/brand";
 import type { QuoteItemViewRow, QuoteViewRow } from "@/lib/db/types";
 import {
+  formatAreaM2,
   formatDimensionsCmFromMeters,
   formatIls,
   formatIssueDate,
@@ -39,6 +40,14 @@ export const QuoteDocumentSheet = forwardRef<
     lines: QuoteItemViewRow[];
   }
 >(function QuoteDocumentSheet({ quote, customer, lines }, ref) {
+  const totalVolumeM3 = lines
+    .filter((ln) => (ln.pricing_unit ?? "m3") === "m3")
+    .reduce((sum, ln) => sum + Number(ln.volume_m3), 0);
+
+  const totalAreaM2 = lines
+    .filter((ln) => ln.pricing_unit === "m2")
+    .reduce((sum, ln) => sum + Number(ln.area_m2), 0);
+
   return (
     <div
       ref={ref}
@@ -124,37 +133,82 @@ export const QuoteDocumentSheet = forwardRef<
                 <th>אבן</th>
                 <th>מידות (ס״מ)</th>
                 <th className="ods-num">כמות</th>
-                <th className="ods-num">נפח (קו״מ)</th>
-                <th className="ods-num">מחיר לקו״ב</th>
+                <th className="ods-num">נפח / שטח / כמות</th>
+                <th className="ods-num">מחיר</th>
                 <th className="ods-num">סכום שורה</th>
               </tr>
             </thead>
             <tbody>
-              {lines.map((ln) => (
-                <tr key={ln.id}>
-                  <td>{ln.stone_name}</td>
-                  <td>
-                    {formatDimensionsCmFromMeters(
-                      Number(ln.length_m),
-                      Number(ln.width_m),
-                      Number(ln.height_m)
-                    )}
-                  </td>
-                  <td className="ods-num">{ln.quantity}</td>
-                  <td className="ods-num">
-                    {formatVolumeM3(Number(ln.volume_m3))}
-                  </td>
-                  <td className="ods-num">{formatIls(Number(ln.price_per_m3))}</td>
-                  <td className="ods-num ods-strong">
-                    {formatIls(Number(ln.line_subtotal))}
-                  </td>
-                </tr>
-              ))}
+              {lines.map((ln) => {
+                const unit = ln.pricing_unit ?? "m3";
+                return (
+                  <tr key={ln.id}>
+                    <td>{ln.stone_name}</td>
+                    <td>
+                      {formatDimensionsCmFromMeters(
+                        Number(ln.length_m),
+                        Number(ln.width_m),
+                        Number(ln.height_m)
+                      )}
+                    </td>
+                    <td className="ods-num">{ln.quantity}</td>
+                    <td className="ods-num">
+                      {unit === "m2" ? (
+                        <>
+                          {formatAreaM2(Number(ln.area_m2))}
+                          <span className="ods-unit"> מ״ר</span>
+                        </>
+                      ) : unit === "unit" ? (
+                        <>
+                          {ln.quantity}
+                          <span className="ods-unit"> יח׳</span>
+                        </>
+                      ) : (
+                        formatVolumeM3(Number(ln.volume_m3))
+                      )}
+                    </td>
+                    <td className="ods-num">
+                      {unit === "m2" ? (
+                        <>
+                          {formatIls(Number(ln.price_per_m2))}
+                          <span className="ods-unit"> /מ״ר</span>
+                        </>
+                      ) : unit === "unit" ? (
+                        <>
+                          {formatIls(Number(ln.price_per_unit))}
+                          <span className="ods-unit"> /יח׳</span>
+                        </>
+                      ) : (
+                        formatIls(Number(ln.price_per_m3))
+                      )}
+                    </td>
+                    <td className="ods-num ods-strong">
+                      {formatIls(Number(ln.line_subtotal))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         <div className="ods-totals">
+          {totalVolumeM3 > 0 ? (
+            <div className="ods-totals-row">
+              <span className="ods-totals-label">סה״כ אבן בקו״ב</span>
+              <span className="ods-totals-value">
+                {formatVolumeM3(totalVolumeM3)} קו״ב
+              </span>
+            </div>
+          ) : null}
+          {totalAreaM2 > 0 ? (
+            <div className="ods-totals-row">
+              <span className="ods-totals-label">סה״כ אבן במ״ר</span>
+              <span className="ods-totals-value">
+                {formatAreaM2(totalAreaM2)} מ״ר
+              </span>
+            </div>
+          ) : null}
           <div className="ods-totals-row">
             <span className="ods-totals-label">סכום לפני מע״מ</span>
             <span className="ods-totals-value">

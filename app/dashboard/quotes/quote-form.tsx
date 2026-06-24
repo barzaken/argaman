@@ -14,24 +14,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type {
   CustomerRow,
   CustomerStonePriceRow,
   QuoteItemViewRow,
+  QuotePricingUnitDb,
   QuoteViewRow,
   StoneRow,
 } from "@/lib/db/types";
 import {
-  computeLineSubtotal,
+  computeAreaM2FromCm,
+  computeQuoteLineSubtotal,
   computeVolumeM3FromCm,
   metersToCmInput,
   pricePerM3ExVatFromInclusive,
+  quoteMeasurePreviewLabel,
+  quotePriceLabel,
   computeTotalWithVat,
   computeVatAmount,
 } from "@/lib/db/calculations";
-import { formatIls, formatVolumeM3 } from "@/lib/db/format";
+import { formatAreaM2, formatIls, formatVolumeM3 } from "@/lib/db/format";
 
 const VAT_RATE = 0.18;
 
@@ -45,22 +50,24 @@ function newLineKey(): string {
 type Line = {
   key: string;
   stone_id: string;
+  pricing_unit: QuotePricingUnitDb;
   length_cm: string;
   width_cm: string;
   height_cm: string;
   quantity: string;
-  price_per_m3: string;
+  price: string;
 };
 
 function newEmptyLine(): Line {
   return {
     key: newLineKey(),
     stone_id: "",
+    pricing_unit: "m3",
     length_cm: "",
     width_cm: "",
     height_cm: "",
     quantity: "1",
-    price_per_m3: "",
+    price: "",
   };
 }
 
@@ -70,7 +77,7 @@ function parseLineNumbers(ln: Line) {
     W: parseFloat(ln.width_cm.replace(",", ".")) || 0,
     H: parseFloat(ln.height_cm.replace(",", ".")) || 0,
     Q: parseInt(ln.quantity.replace(",", "."), 10),
-    p: parseFloat(ln.price_per_m3.replace(",", ".")),
+    p: parseFloat(ln.price.replace(",", ".")),
   };
 }
 
@@ -80,23 +87,26 @@ function isLineTouched(ln: Line): boolean {
     ln.length_cm.trim() ||
     ln.width_cm.trim() ||
     ln.height_cm.trim() ||
-    ln.price_per_m3.trim() ||
+    ln.price.trim() ||
     (ln.quantity.trim() && ln.quantity !== "1")
   );
 }
 
 function isLineComplete(ln: Line): boolean {
   const { L, W, H, Q, p } = parseLineNumbers(ln);
-  return !!(
-    ln.stone_id &&
-    L > 0 &&
-    W > 0 &&
-    H > 0 &&
-    Number.isInteger(Q) &&
-    Q > 0 &&
-    !Number.isNaN(p) &&
-    p >= 0
-  );
+  if (
+    !ln.stone_id ||
+    !L ||
+    !W ||
+    !Number.isInteger(Q) ||
+    Q <= 0 ||
+    Number.isNaN(p) ||
+    p < 0
+  ) {
+    return false;
+  }
+  if (ln.pricing_unit === "m3") return H > 0;
+  return true;
 }
 
 function getLineIssues(ln: Line, index: number): string | null {
@@ -104,7 +114,10 @@ function getLineIssues(ln: Line, index: number): string | null {
   const prefix = `פריט ${index + 1}:`;
   if (!ln.stone_id) return `${prefix} חסרה בחירת אבן`;
   const { L, W, H, Q, p } = parseLineNumbers(ln);
-  if (!L || !W || !H) return `${prefix} חסרות מידות תקינות`;
+  if (!L || !W) return `${prefix} חסרות אורך/רוחב תקינים`;
+  if (ln.pricing_unit === "m3" && !H) {
+    return `${prefix} חסר גובה/עובי תקין`;
+  }
   if (!Number.isInteger(Q) || Q <= 0) return `${prefix} כמות לא תקינה`;
   if (Number.isNaN(p) || p < 0) return `${prefix} מחיר לא תקין`;
   return null;
@@ -113,9 +126,10 @@ function getLineIssues(ln: Line, index: number): string | null {
 function effectiveStonePrice(
   stoneId: string,
   forCustomerId: string,
-  overrides: CustomerStonePriceRow[]
+  overrides: CustomerStonePriceRow[],
+  unit: QuotePricingUnitDb
 ): number | null {
-  if (!stoneId || !forCustomerId) return null;
+  if (!stoneId || !forCustomerId || unit !== "m3") return null;
   const ov = overrides.find(
     (o) => o.customer_id === forCustomerId && o.stone_id === stoneId
   );
@@ -140,15 +154,63 @@ function validateLines(lines: Line[]): string | null {
 }
 
 function buildLineFromQuoteItem(ln: QuoteItemViewRow): Line {
+  const unit = ln.pricing_unit ?? "m3";
+  const price =
+    unit === "m2"
+      ? ln.price_per_m2
+      : unit === "unit"
+        ? ln.price_per_unit
+        : ln.price_per_m3;
   return {
     key: newLineKey(),
     stone_id: ln.stone_id,
+    pricing_unit: unit,
     length_cm: metersToCmInput(Number(ln.length_m)),
     width_cm: metersToCmInput(Number(ln.width_m)),
     height_cm: metersToCmInput(Number(ln.height_m)),
     quantity: String(ln.quantity),
-    price_per_m3: String(ln.price_per_m3),
+    price: price != null ? String(price) : "",
   };
+}
+
+function lineMeasurePreview(ln: Line): string {
+  const { L, W, H, Q } = parseLineNumbers(ln);
+  if (!L || !W || !Q) return "—";
+  if (ln.pricing_unit === "m3") {
+    if (!H) return "—";
+    const vol = computeVolumeM3FromCm({
+      lengthCm: L,
+      widthCm: W,
+      heightCm: H,
+      quantity: Q,
+    });
+    return formatVolumeM3(vol);
+  }
+  if (ln.pricing_unit === "m2") {
+    const area = computeAreaM2FromCm({ lengthCm: L, widthCm: W, quantity: Q });
+    return formatAreaM2(area);
+  }
+  return String(Q);
+}
+
+function lineItemPayload(ln: Line) {
+  const { L, W, H, Q, p } = parseLineNumbers(ln);
+  const heightCm = ln.pricing_unit === "m3" ? H : H || 2;
+  const base = {
+    stone_id: ln.stone_id,
+    length_m: L / 100,
+    width_m: W / 100,
+    height_m: heightCm / 100,
+    quantity: Q,
+    pricing_unit: ln.pricing_unit,
+  };
+  if (ln.pricing_unit === "m3") {
+    return { ...base, price_per_m3: p };
+  }
+  if (ln.pricing_unit === "m2") {
+    return { ...base, price_per_m2: p };
+  }
+  return { ...base, price_per_unit: p };
 }
 
 function Field({
@@ -201,10 +263,15 @@ export function QuoteForm({
     setCustomerId(nextCustomerId);
     setLines((prev) =>
       prev.map((ln) => {
-        if (!ln.stone_id) return ln;
-        const dp = effectiveStonePrice(ln.stone_id, nextCustomerId, overrides);
+        if (!ln.stone_id || ln.pricing_unit !== "m3") return ln;
+        const dp = effectiveStonePrice(
+          ln.stone_id,
+          nextCustomerId,
+          overrides,
+          ln.pricing_unit
+        );
         if (dp == null || Number.isNaN(dp)) return ln;
-        return { ...ln, price_per_m3: String(dp) };
+        return { ...ln, price: String(dp) };
       })
     );
   }
@@ -215,12 +282,13 @@ export function QuoteForm({
         if (ln.key !== key) return ln;
         const next = { ...ln, ...patch };
         if (patch.stone_id != null && patch.stone_id !== ln.stone_id) {
-          const dp = effectiveStonePrice(patch.stone_id, customerId, overrides);
-          if (dp != null && !Number.isNaN(dp)) {
-            next.price_per_m3 = String(dp);
-          } else {
-            next.price_per_m3 = "";
-          }
+          const dp = effectiveStonePrice(
+            patch.stone_id,
+            customerId,
+            overrides,
+            next.pricing_unit
+          );
+          next.price = dp != null && !Number.isNaN(dp) ? String(dp) : "";
         }
         return next;
       })
@@ -231,24 +299,25 @@ export function QuoteForm({
     let subtotalEx = 0;
     let totalVolumeM3 = 0;
     for (const ln of lines) {
-      const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
-      const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
-      const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
-      const Q = parseInt(ln.quantity.replace(",", "."), 10) || 0;
-      const p = parseFloat(ln.price_per_m3.replace(",", ".")) || 0;
-      if (!L || !W || !H || !Q) continue;
-      const vol = computeVolumeM3FromCm({
-        lengthCm: L,
-        widthCm: W,
-        heightCm: H,
-        quantity: Q,
-      });
-      totalVolumeM3 += vol;
-      if (!p) continue;
+      const { L, W, H, Q, p } = parseLineNumbers(ln);
+      if (!L || !W || !Q || !p) continue;
+      if (ln.pricing_unit === "m3" && H) {
+        totalVolumeM3 += computeVolumeM3FromCm({
+          lengthCm: L,
+          widthCm: W,
+          heightCm: H,
+          quantity: Q,
+        });
+      }
       const priceEx = vatIncluded
         ? pricePerM3ExVatFromInclusive(p, VAT_RATE)
         : p;
-      subtotalEx += computeLineSubtotal(vol, priceEx);
+      if (!isLineComplete(ln)) continue;
+      subtotalEx += computeQuoteLineSubtotal(
+        ln.pricing_unit,
+        { lengthCm: L, widthCm: W, heightCm: H || 2, quantity: Q },
+        priceEx
+      );
     }
     const vat = computeVatAmount(subtotalEx, VAT_RATE);
     const total = computeTotalWithVat(subtotalEx, VAT_RATE);
@@ -271,17 +340,7 @@ export function QuoteForm({
     setPending(true);
     setError(null);
 
-    const items = lines.filter(isLineComplete).map((ln) => {
-      const { L, W, H, Q, p } = parseLineNumbers(ln);
-      return {
-        stone_id: ln.stone_id,
-        length_m: L / 100,
-        width_m: W / 100,
-        height_m: H / 100,
-        quantity: Q,
-        price_per_m3: p,
-      };
-    });
+    const items = lines.filter(isLineComplete).map(lineItemPayload);
 
     const payload = {
       customer_id: customerId,
@@ -320,7 +379,7 @@ export function QuoteForm({
         <div>
           <h2 className="text-lg font-semibold text-foreground">{title}</h2>
           <p className="text-muted-foreground text-sm">
-            בחרו לקוח, אבנים מהקטלוג, מידות ומחירים — ללא צורך במלאי.
+            בחרו לקוח, אבנים מהקטלוג, מידות ומחיר לפי קו״ב / מ״ר / יחידה.
           </p>
         </div>
 
@@ -368,7 +427,7 @@ export function QuoteForm({
             checked={vatIncluded}
             onChange={(e) => setVatIncluded(e.target.checked)}
           />
-          מחיר לקו״ב כולל מע״מ (יומר לנטו לפני שמירה)
+          מחיר בפריטים כולל מע״מ (יומר לנטו לפני שמירה)
         </label>
 
         <Separator />
@@ -387,29 +446,25 @@ export function QuoteForm({
           </div>
 
           {lines.map((ln, idx) => {
-            const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
-            const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
-            const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
-            const Q = parseInt(ln.quantity.replace(",", "."), 10) || 0;
-            const p = parseFloat(ln.price_per_m3.replace(",", ".")) || 0;
-            const vol =
-              L && W && H && Q
-                ? computeVolumeM3FromCm({
-                    lengthCm: L,
-                    widthCm: W,
-                    heightCm: H,
-                    quantity: Q,
-                  })
-                : null;
+            const { L, W, H, Q, p } = parseLineNumbers(ln);
             const priceEx =
-              vol != null && p
+              p && !Number.isNaN(p)
                 ? vatIncluded
                   ? pricePerM3ExVatFromInclusive(p, VAT_RATE)
                   : p
                 : null;
             const lineSub =
-              vol != null && priceEx != null
-                ? computeLineSubtotal(vol, priceEx)
+              priceEx != null && isLineComplete(ln)
+                ? computeQuoteLineSubtotal(
+                    ln.pricing_unit,
+                    {
+                      lengthCm: L,
+                      widthCm: W,
+                      heightCm: H || 2,
+                      quantity: Q,
+                    },
+                    priceEx
+                  )
                 : null;
 
             return (
@@ -452,17 +507,49 @@ export function QuoteForm({
                     </SelectContent>
                   </Select>
                 </Field>
-                <div className="grid gap-3 sm:grid-cols-4">
-                  <Field label="גובה / עובי (ס״מ)">
-                    <Input
-                      dir="ltr"
-                      inputMode="decimal"
-                      value={ln.height_cm}
-                      onChange={(e) =>
-                        updateLine(ln.key, { height_cm: e.target.value })
-                      }
-                    />
-                  </Field>
+
+                <Tabs
+                  value={ln.pricing_unit}
+                  onValueChange={(v) =>
+                    updateLine(ln.key, {
+                      pricing_unit: v as QuotePricingUnitDb,
+                      price: "",
+                    })
+                  }
+                >
+                  <TabsList className="w-full">
+                    <TabsTrigger value="m3" className="flex-1">
+                      לפי קו״ב
+                    </TabsTrigger>
+                    <TabsTrigger value="m2" className="flex-1">
+                      לפי מ״ר
+                    </TabsTrigger>
+                    <TabsTrigger value="unit" className="flex-1">
+                      לפי יחידה
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                <div
+                  className={cn(
+                    "grid gap-3",
+                    ln.pricing_unit === "m3"
+                      ? "sm:grid-cols-4"
+                      : "sm:grid-cols-3"
+                  )}
+                >
+                  {ln.pricing_unit === "m3" ? (
+                    <Field label="גובה / עובי (ס״מ)">
+                      <Input
+                        dir="ltr"
+                        inputMode="decimal"
+                        value={ln.height_cm}
+                        onChange={(e) =>
+                          updateLine(ln.key, { height_cm: e.target.value })
+                        }
+                      />
+                    </Field>
+                  ) : null}
                   <Field label="רוחב (ס״מ)">
                     <Input
                       dir="ltr"
@@ -494,27 +581,37 @@ export function QuoteForm({
                     />
                   </Field>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="מחיר לקו״ב (₪)">
+
+                {ln.pricing_unit !== "m3" ? (
+                  <Field label="גובה / עובי (ס״מ) — לצורך המרה להזמנה">
                     <Input
                       dir="ltr"
                       inputMode="decimal"
-                      value={ln.price_per_m3}
+                      value={ln.height_cm}
                       onChange={(e) =>
-                        updateLine(ln.key, { price_per_m3: e.target.value })
+                        updateLine(ln.key, { height_cm: e.target.value })
+                      }
+                      placeholder="ברירת מחדל 2"
+                    />
+                  </Field>
+                ) : null}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={quotePriceLabel(ln.pricing_unit)}>
+                    <Input
+                      dir="ltr"
+                      inputMode="decimal"
+                      value={ln.price}
+                      onChange={(e) =>
+                        updateLine(ln.key, { price: e.target.value })
                       }
                     />
                   </Field>
                   <Field label="תצוגת שורה (נטו לפני מע״מ)">
                     <div className="rounded-lg border border-dashed border-border bg-muted/40 px-2 py-2 text-sm tabular-nums">
-                      נפח:{" "}
-                      {vol != null
-                        ? new Intl.NumberFormat("he-IL", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 4,
-                          }).format(vol)
-                        : "—"}{" "}
-                      · סכום: {lineSub != null ? formatIls(lineSub) : "—"}
+                      {quoteMeasurePreviewLabel(ln.pricing_unit)}:{" "}
+                      {lineMeasurePreview(ln)} · סכום:{" "}
+                      {lineSub != null ? formatIls(lineSub) : "—"}
                     </div>
                   </Field>
                 </div>
@@ -525,14 +622,14 @@ export function QuoteForm({
 
         <div className="rounded-lg border border-border bg-muted/30 p-4">
           <div className="flex flex-col gap-1 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">סה״כ קוב</span>
-              <span className="tabular-nums font-medium">
-                {totalsPreview.totalVolumeM3 > 0
-                  ? `${formatVolumeM3(totalsPreview.totalVolumeM3)} קו״ב`
-                  : "—"}
-              </span>
-            </div>
+            {totalsPreview.totalVolumeM3 > 0 ? (
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">סה״כ קוב (שורות m³)</span>
+                <span className="tabular-nums font-medium">
+                  {formatVolumeM3(totalsPreview.totalVolumeM3)} קו״ב
+                </span>
+              </div>
+            ) : null}
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">סכום לפני מע״מ</span>
               <span className="tabular-nums font-medium">

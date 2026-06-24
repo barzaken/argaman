@@ -22,10 +22,12 @@ import type {
 } from "@/lib/db/types";
 import { formatInventoryShipmentSelectLabel } from "@/lib/db/inventory-taxonomy";
 import {
+  formatAreaM2,
   formatDimensionsCmFromMeters,
   formatIls,
   formatVolumeM3,
 } from "@/lib/db/format";
+import { quotePriceLabel } from "@/lib/db/calculations";
 
 function Field({
   label,
@@ -167,6 +169,21 @@ export function ConvertToOrderForm({
           <h3 className="font-semibold text-foreground">בחירת משלוח מלאי</h3>
           {lines.map((ln, idx) => {
             const opts = inventoryForLine(ln);
+            const unit = ln.pricing_unit ?? "m3";
+            const priceLabel = quotePriceLabel(unit).replace(" (₪)", "");
+            const measureLabel =
+              unit === "m2"
+                ? `שטח: ${formatAreaM2(Number(ln.area_m2))}`
+                : unit === "unit"
+                  ? `כמות: ${ln.quantity} יח׳`
+                  : `נפח: ${formatVolumeM3(Number(ln.volume_m3))}`;
+            const priceValue =
+              unit === "m2"
+                ? formatIls(Number(ln.price_per_m2))
+                : unit === "unit"
+                  ? formatIls(Number(ln.price_per_unit))
+                  : formatIls(Number(ln.price_per_m3));
+
             return (
               <div
                 key={ln.id}
@@ -185,8 +202,10 @@ export function ConvertToOrderForm({
                     )}
                   </p>
                   <p>כמות: {ln.quantity}</p>
-                  <p>נפח: {formatVolumeM3(Number(ln.volume_m3))}</p>
-                  <p>מחיר לקו״ב: {formatIls(Number(ln.price_per_m3))}</p>
+                  <p>{measureLabel}</p>
+                  <p>
+                    {priceLabel}: {priceValue}
+                  </p>
                 </div>
                 <Field label="משלוח במלאי">
                   <Select

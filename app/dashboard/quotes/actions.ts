@@ -3,21 +3,54 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import type { PriorityDb } from "@/lib/db/types";
+import type { PriorityDb, QuotePricingUnitDb } from "@/lib/db/types";
 import { requireAuth } from "@/lib/supabase/auth-helpers";
 
 export type ActionResult =
   | { ok: true; id?: string }
   | { ok: false; message: string };
 
-const quoteItemInputSchema = z.object({
-  stone_id: z.string().uuid(),
-  length_m: z.coerce.number().positive(),
-  width_m: z.coerce.number().positive(),
-  height_m: z.coerce.number().positive(),
-  quantity: z.coerce.number().int().positive(),
-  price_per_m3: z.coerce.number().nonnegative(),
-});
+const quoteItemInputSchema = z
+  .object({
+    stone_id: z.string().uuid(),
+    length_m: z.coerce.number().positive(),
+    width_m: z.coerce.number().positive(),
+    height_m: z.coerce.number().positive(),
+    quantity: z.coerce.number().int().positive(),
+    pricing_unit: z.enum(["m3", "m2", "unit"]),
+    price_per_m3: z.coerce.number().nonnegative().optional(),
+    price_per_m2: z.coerce.number().nonnegative().optional(),
+    price_per_unit: z.coerce.number().nonnegative().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.pricing_unit === "m3") {
+      if (data.price_per_m3 == null || Number.isNaN(data.price_per_m3)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "חובה מחיר לקו״ב",
+          path: ["price_per_m3"],
+        });
+      }
+      return;
+    }
+    if (data.pricing_unit === "m2") {
+      if (data.price_per_m2 == null || Number.isNaN(data.price_per_m2)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "חובה מחיר למ״ר",
+          path: ["price_per_m2"],
+        });
+      }
+      return;
+    }
+    if (data.price_per_unit == null || Number.isNaN(data.price_per_unit)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "חובה מחיר ליחידה",
+        path: ["price_per_unit"],
+      });
+    }
+  });
 
 const createQuotePayloadSchema = z.object({
   customer_id: z.string().uuid(),
@@ -165,3 +198,5 @@ export async function createOrderFromQuote(
   revalidatePath("/dashboard");
   return { ok: true, id: orderId };
 }
+
+export type { QuotePricingUnitDb };
