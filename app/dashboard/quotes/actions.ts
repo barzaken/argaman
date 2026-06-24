@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import type { PriorityDb, QuotePricingUnitDb } from "@/lib/db/types";
+import type { PriorityDb } from "@/lib/db/types";
 import { requireAuth } from "@/lib/supabase/auth-helpers";
 
 export type ActionResult =
@@ -198,5 +198,3 @@ export async function createOrderFromQuote(
   revalidatePath("/dashboard");
   return { ok: true, id: orderId };
 }
-
-export type { QuotePricingUnitDb };
