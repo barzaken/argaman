@@ -33,13 +33,13 @@ export function formatMeters(n: number): string {
   }).format(n);
 }
 
-/** מידות במטרים מהמסד → תצוגה בסנטימטרים (למשל 0.1×0.55×1.65 → 10×55×165) */
+/** מידות במטרים מהמסד → תצוגה בסנטימטרים (אורך×רוחב×גובה, משמאל לימין) */
 export function formatDimensionsCmFromMeters(
   lengthM: number,
   widthM: number,
   heightM: number
 ): string {
-  return `${metersToCmInput(lengthM)}×${metersToCmInput(widthM)}×${metersToCmInput(heightM)}`;
+  return `\u200E${metersToCmInput(lengthM)}×${metersToCmInput(widthM)}×${metersToCmInput(heightM)}`;
 }
 
 export function formatAreaM2(n: number): string {
