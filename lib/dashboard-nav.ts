@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   CircleDollarSign,
+  FileSpreadsheet,
   FileText,
   LayoutDashboard,
   ListOrdered,
@@ -76,6 +77,22 @@ export const dashboardNavMain: DashboardNavMainItem[] = [
     url: "/dashboard/orders/new",
     title: "תעודת הזמנה חדשה",
     icon: FileText,
+    ctaLabel: null,
+    hideInSidebar: true,
+  },
+  {
+    id: "quotes",
+    url: "/dashboard/quotes",
+    title: "הצעות מחיר",
+    icon: FileSpreadsheet,
+    ctaLabel: "הצעת מחיר חדשה",
+    headerCtaHref: "/dashboard/quotes/new",
+  },
+  {
+    id: "quotes-new",
+    url: "/dashboard/quotes/new",
+    title: "הצעת מחיר חדשה",
+    icon: FileSpreadsheet,
     ctaLabel: null,
     hideInSidebar: true,
   },

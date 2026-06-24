@@ -268,3 +268,10 @@ export async function downloadDeliveryDocumentPdf(
 ): Promise<void> {
   await downloadDocumentPdf(sheetEl, `תעודת-משלוח-${deliveryNumber}.pdf`);
 }
+
+export async function downloadQuoteDocumentPdf(
+  sheetEl: HTMLElement,
+  quoteNumber: number
+): Promise<void> {
+  await downloadDocumentPdf(sheetEl, `הצעת-מחיר-${quoteNumber}.pdf`);
+}

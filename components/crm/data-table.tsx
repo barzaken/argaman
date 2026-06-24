@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 export type CrmRowNavigateKind =
   | "inventory-edit"
   | "order-detail"
+  | "quote-detail"
   | "delivery-detail"
   | "customer-detail";
 
@@ -47,6 +48,8 @@ function rowHrefFromKind(kind: CrmRowNavigateKind, id: string): string {
       return `/dashboard/inventory/${id}/edit`;
     case "order-detail":
       return `/dashboard/orders/${id}`;
+    case "quote-detail":
+      return `/dashboard/quotes/${id}`;
     case "delivery-detail":
       return `/dashboard/deliveries/${id}`;
     case "customer-detail":
@@ -171,7 +174,7 @@ export function CrmDataTable<
       </div>
 
       <div className="overflow-hidden rounded-md border bg-card">
-        <Table>
+        <Table dir="rtl">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>

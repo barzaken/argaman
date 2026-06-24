@@ -21,6 +21,7 @@ export type OrderItemStatusDb =
   | "in_progress"
   | "completed"
   | "cancelled";
+export type QuoteStatusDb = "open" | "converted" | "cancelled";
 export type PriorityDb = "low" | "medium" | "urgent";
 export type FulfillmentMethodDb = "pickup" | "shipping";
 export type DeliveryStatusDb =
@@ -101,6 +102,54 @@ export type OrderRow = {
   total: number;
   created_at: string;
   updated_at: string;
+};
+
+export type QuoteRow = {
+  id: string;
+  quote_number: number;
+  customer_id: string;
+  status: QuoteStatusDb;
+  valid_until: string | null;
+  notes: string | null;
+  vat_rate: number;
+  vat_included: boolean;
+  subtotal: number;
+  vat_amount: number;
+  total: number;
+  converted_order_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuoteViewRow = QuoteRow & {
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  has_order: boolean;
+  item_count: number;
+  converted_order_number: number | null;
+};
+
+export type QuoteItemViewRow = {
+  id: string;
+  quote_id: string;
+  stone_id: string;
+  length_m: number;
+  width_m: number;
+  height_m: number;
+  quantity: number;
+  volume_m3: number;
+  price_per_m3: number;
+  line_subtotal: number;
+  quote_number: number;
+  customer_id: string;
+  quote_status: QuoteStatusDb;
+  quote_valid_until: string | null;
+  quote_vat_rate: number;
+  quote_vat_included: boolean;
+  customer_name: string;
+  stone_name: string;
+  stone_color_hex: string;
 };
 
 export type OrderViewRow = OrderRow & {
