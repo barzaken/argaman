@@ -172,12 +172,12 @@ export const DeliveryDocumentSheet = forwardRef<
           <table className="ods-table">
             <thead>
               <tr>
-                <th>אבן</th>
-                <th>מידות (ס״מ)</th>
-                <th className="ods-num">כמות</th>
-                <th className="ods-num">נפח / שטח</th>
-                <th className="ods-num">מחיר לקו״ב / למ״ר</th>
                 <th className="ods-num">סכום שורה</th>
+                <th className="ods-num">מחיר לקו״ב</th>
+                <th className="ods-num">נפח/שטח</th>
+                <th className="ods-num">כמות</th>
+                <th>מידות</th>
+                <th>סוג אבן</th>
               </tr>
             </thead>
             <tbody>
@@ -186,24 +186,8 @@ export const DeliveryDocumentSheet = forwardRef<
 
                 return (
                   <tr key={ln.id}>
-                    <td>{ln.stone_name}</td>
-                    <td>
-                      {formatDimensionsCmFromMeters(
-                        Number(ln.length_m),
-                        Number(ln.width_m),
-                        Number(ln.height_m)
-                      )}
-                    </td>
-                    <td className="ods-num">{ln.quantity}</td>
-                    <td className="ods-num">
-                      {isM2 ? (
-                        <>
-                          {formatAreaM2(lineAreaM2(ln))}
-                          <span className="ods-unit"> מ״ר</span>
-                        </>
-                      ) : (
-                        formatVolumeM3(Number(ln.volume_m3))
-                      )}
+                    <td className="ods-num ods-strong">
+                      {formatIls(Number(ln.line_subtotal))}
                     </td>
                     <td className="ods-num">
                       {isM2 ? (
@@ -215,9 +199,25 @@ export const DeliveryDocumentSheet = forwardRef<
                         formatIls(Number(ln.price_per_m3))
                       )}
                     </td>
-                    <td className="ods-num ods-strong">
-                      {formatIls(Number(ln.line_subtotal))}
+                    <td className="ods-num">
+                      {isM2 ? (
+                        <>
+                          {formatAreaM2(lineAreaM2(ln))}
+                          <span className="ods-unit"> מ״ר</span>
+                        </>
+                      ) : (
+                        formatVolumeM3(Number(ln.volume_m3))
+                      )}
                     </td>
+                    <td className="ods-num">{ln.quantity}</td>
+                    <td>
+                      {formatDimensionsCmFromMeters(
+                        Number(ln.length_m),
+                        Number(ln.width_m),
+                        Number(ln.height_m)
+                      )}
+                    </td>
+                    <td>{ln.stone_name}</td>
                   </tr>
                 );
               })}
