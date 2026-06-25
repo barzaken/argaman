@@ -50,6 +50,14 @@ export const OrderDocumentSheet = forwardRef<
     lines: OrderItemViewRow[];
   }
 >(function OrderDocumentSheet({ order, customer, lines }, ref) {
+  const totalVolumeM3 = lines
+    .filter((ln) => (ln.inventory_pricing_unit ?? "m3") !== "m2")
+    .reduce((sum, ln) => sum + Number(ln.volume_m3), 0);
+
+  const totalAreaM2 = lines
+    .filter((ln) => ln.inventory_pricing_unit === "m2")
+    .reduce((sum, ln) => sum + lineAreaM2(ln), 0);
+
   return (
     <div
       ref={ref}
@@ -180,6 +188,22 @@ export const OrderDocumentSheet = forwardRef<
         </div>
 
         <div className="ods-totals">
+          {totalVolumeM3 > 0 ? (
+            <div className="ods-totals-row">
+              <span className="ods-totals-label">סה״כ קו״ב</span>
+              <span className="ods-totals-value">
+                {formatVolumeM3(totalVolumeM3)} קו״ב
+              </span>
+            </div>
+          ) : null}
+          {totalAreaM2 > 0 ? (
+            <div className="ods-totals-row">
+              <span className="ods-totals-label">סה״כ מ״ר</span>
+              <span className="ods-totals-value">
+                {formatAreaM2(totalAreaM2)} מ״ר
+              </span>
+            </div>
+          ) : null}
           <div className="ods-totals-row">
             <span className="ods-totals-label">סכום לפני מע״מ</span>
             <span className="ods-totals-value">

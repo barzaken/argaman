@@ -233,6 +233,7 @@ export type DeliveryItemRow = {
   volume_m3: number;
   price_per_m3: number;
   line_subtotal: number;
+  inventory_pricing_unit?: InventoryPricingUnitDb;
 };
 
 export type DebtorsViewRow = {
