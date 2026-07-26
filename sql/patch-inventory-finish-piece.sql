@@ -18,7 +18,7 @@ $$;
 
 DO $$
 BEGIN
-  CREATE TYPE inventory_piece_type AS ENUM ('panel', 'frame', 'plate');
+  CREATE TYPE inventory_piece_type AS ENUM ('panel', 'frame', 'plate', 'standing_stone');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -31,7 +31,10 @@ ALTER TABLE public.inventory_items
 COMMENT ON COLUMN public.inventory_items.finish_level IS
   'רמת גימור: halak=חלק, tuboza=טובזה, masmesm=מסמסם';
 COMMENT ON COLUMN public.inventory_items.piece_type IS
-  'סוג חלק: panel=פאנל, frame=מסגרת, plate=פלטה';
+  'סוג חלק: panel=פאנל, frame=מסגרת, plate=פלטה, standing_stone=אבן עומדת';
+
+-- אם ה-enum כבר נוצר בלי standing_stone (הרצות ישנות של הפאץ׳):
+ALTER TYPE public.inventory_piece_type ADD VALUE IF NOT EXISTS 'standing_stone';
 
 -- רענון ה-view כדי שיכלול את העמודות החדשות ב־i.*
 DROP VIEW IF EXISTS public.inventory_items_view;

@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- -----------------------------------------------------------------------------
 CREATE TYPE inventory_status AS ENUM ('available', 'unavailable', 'in_transit');
 CREATE TYPE inventory_finish_level AS ENUM ('halak', 'tuboza', 'masmesm');
-CREATE TYPE inventory_piece_type AS ENUM ('panel', 'frame', 'plate');
+CREATE TYPE inventory_piece_type AS ENUM ('panel', 'frame', 'plate', 'standing_stone');
 CREATE TYPE inventory_pricing_unit AS ENUM ('m3', 'm2');
 CREATE TYPE order_status AS ENUM ('open', 'in_production', 'ready_for_delivery', 'completed', 'cancelled');
 CREATE TYPE order_item_status AS ENUM ('pending', 'in_progress', 'completed', 'cancelled');

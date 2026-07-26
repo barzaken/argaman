@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { createQuote, updateQuote } from "./actions";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -371,11 +375,13 @@ export function QuoteForm({
       : "הצעת מחיר חדשה";
 
   return (
-    <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-y-scroll bg-background p-4 md:p-8">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-[min(100%,56rem)] flex-col gap-6"
+        className="flex min-h-0 flex-1 flex-col"
       >
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="mx-auto flex w-full max-w-[min(100%,56rem)] flex-col gap-6">
         <div>
           <h2 className="text-lg font-semibold text-foreground">{title}</h2>
           <p className="text-muted-foreground text-sm">
@@ -657,8 +663,10 @@ export function QuoteForm({
             {error}
           </p>
         ) : null}
+          </div>
+        </div>
 
-        <div className="flex flex-wrap justify-end gap-2">
+        <FormStickyFooter className="justify-end">
           <Button
             type="button"
             variant="outline"
@@ -673,8 +681,8 @@ export function QuoteForm({
                 ? "שמירת שינויים"
                 : "יצירת הצעה"}
           </Button>
-        </div>
+        </FormStickyFooter>
       </form>
-    </div>
+    </FormPageShell>
   );
 }

@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { updateOrderHeader } from "../../actions";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -63,71 +67,77 @@ export function OrderHeaderEditForm({ order }: { order: OrderRow }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-auto bg-background p-4 md:p-8">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-lg flex-col gap-6"
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <h2 className="text-lg font-semibold text-foreground">
-          עריכת הזמנה #{order.order_number}
-        </h2>
-        <Field label="תעדוף">
-          <Select
-            dir="rtl"
-            value={priority}
-            onValueChange={(v) =>
-              setPriority(v as typeof priority)
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              <SelectItem value="low">נמוך</SelectItem>
-              <SelectItem value="medium">בינוני</SelectItem>
-              <SelectItem value="urgent">דחוף</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label="סטטוס">
-          <Select
-            dir="rtl"
-            value={status}
-            onValueChange={(v) => setStatus(v as typeof status)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              <SelectItem value="open">פתוחה</SelectItem>
-              <SelectItem value="in_production">בייצור</SelectItem>
-              <SelectItem value="ready_for_delivery">מוכנה למשלוח</SelectItem>
-              <SelectItem value="completed">הושלמה</SelectItem>
-              <SelectItem value="cancelled">בוטלה</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label="יעד אספקה">
-          <Input
-            type="date"
-            dir="ltr"
-            value={supplyDue}
-            onChange={(e) => setSupplyDue(e.target.value)}
-          />
-        </Field>
-        <Field label="קישור חתימה">
-          <Input
-            dir="ltr"
-            value={signatureUrl}
-            onChange={(e) => setSignatureUrl(e.target.value)}
-          />
-        </Field>
-        {error ? (
-          <p className="text-destructive text-sm" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className="flex flex-wrap gap-2">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
+            <h2 className="text-lg font-semibold text-foreground">
+              עריכת הזמנה #{order.order_number}
+            </h2>
+            <Field label="תעדוף">
+              <Select
+                dir="rtl"
+                value={priority}
+                onValueChange={(v) =>
+                  setPriority(v as typeof priority)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="low">נמוך</SelectItem>
+                  <SelectItem value="medium">בינוני</SelectItem>
+                  <SelectItem value="urgent">דחוף</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="סטטוס">
+              <Select
+                dir="rtl"
+                value={status}
+                onValueChange={(v) => setStatus(v as typeof status)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent dir="rtl">
+                  <SelectItem value="open">פתוחה</SelectItem>
+                  <SelectItem value="in_production">בייצור</SelectItem>
+                  <SelectItem value="ready_for_delivery">
+                    מוכנה למשלוח
+                  </SelectItem>
+                  <SelectItem value="completed">הושלמה</SelectItem>
+                  <SelectItem value="cancelled">בוטלה</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="יעד אספקה">
+              <Input
+                type="date"
+                dir="ltr"
+                value={supplyDue}
+                onChange={(e) => setSupplyDue(e.target.value)}
+              />
+            </Field>
+            <Field label="קישור חתימה">
+              <Input
+                dir="ltr"
+                value={signatureUrl}
+                onChange={(e) => setSignatureUrl(e.target.value)}
+              />
+            </Field>
+            {error ? (
+              <p className="text-destructive text-sm" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <FormStickyFooter>
           <Button
             type="button"
             variant="outline"
@@ -138,8 +148,8 @@ export function OrderHeaderEditForm({ order }: { order: OrderRow }) {
           <Button type="submit" disabled={pending}>
             {pending ? "שומר…" : "שמירה"}
           </Button>
-        </div>
+        </FormStickyFooter>
       </form>
-    </div>
+    </FormPageShell>
   );
 }

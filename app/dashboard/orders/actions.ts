@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type {
+  InventoryFinishLevelDb,
+  InventoryPieceTypeDb,
   OrderItemStatusDb,
   OrderStatusDb,
   PriorityDb,
@@ -14,15 +16,52 @@ export type ActionResult =
   | { ok: true; id?: string }
   | { ok: false; message: string };
 
-const orderItemInputSchema = z.object({
-  stone_id: z.string().uuid(),
-  inventory_item_id: z.string().uuid(),
-  length_m: z.coerce.number().positive(),
-  width_m: z.coerce.number().positive(),
-  height_m: z.coerce.number().positive(),
-  quantity: z.coerce.number().int().positive(),
-  price_per_m3: z.coerce.number().nonnegative(),
-});
+const orderItemInputSchema = z
+  .object({
+    stone_id: z.string().uuid(),
+    inventory_item_id: z.string().uuid().optional().nullable(),
+    not_in_inventory: z.boolean().optional(),
+    finish_level: z
+      .enum(["halak", "tuboza", "masmesm"])
+      .optional()
+      .nullable(),
+    piece_type: z
+      .enum(["panel", "frame", "plate", "standing_stone"])
+      .optional()
+      .nullable(),
+    length_m: z.coerce.number().positive(),
+    width_m: z.coerce.number().positive(),
+    height_m: z.coerce.number().positive(),
+    quantity: z.coerce.number().int().positive(),
+    price_per_m3: z.coerce.number().nonnegative(),
+  })
+  .superRefine((item, ctx) => {
+    const adhoc = item.not_in_inventory === true;
+    if (adhoc) {
+      if (!item.finish_level) {
+        ctx.addIssue({
+          code: "custom",
+          message: "בפריט שלא במלאי חובה רמת גימור",
+          path: ["finish_level"],
+        });
+      }
+      if (!item.piece_type) {
+        ctx.addIssue({
+          code: "custom",
+          message: "בפריט שלא במלאי חובה סוג חלק",
+          path: ["piece_type"],
+        });
+      }
+      return;
+    }
+    if (!item.inventory_item_id) {
+      ctx.addIssue({
+        code: "custom",
+        message: "חסר משלוח במלאי",
+        path: ["inventory_item_id"],
+      });
+    }
+  });
 
 const createOrderPayloadSchema = z.object({
   customer_id: z.string().uuid(),
@@ -39,6 +78,7 @@ export async function createOrder(
 ): Promise<ActionResult> {
   const auth = await requireAuth();
   if (!auth.ok) return { ok: false, message: auth.message };
+  const { supabase } = auth;
 
   const parsed = createOrderPayloadSchema.safeParse(raw);
   if (!parsed.success) {
@@ -50,17 +90,99 @@ export async function createOrder(
 
   const vatRate = parsed.data.vat_rate ?? 0.18;
 
-  const { data, error } = await auth.supabase.rpc("crm_create_order_with_items", {
+  const resolvedItems: {
+    stone_id: string;
+    inventory_item_id: string;
+    length_m: number;
+    width_m: number;
+    height_m: number;
+    quantity: number;
+    price_per_m3: number;
+  }[] = [];
+
+  const vatFactor = 1 + vatRate;
+  const createdInventoryIds: string[] = [];
+
+  async function rollbackCreatedInventory() {
+    if (createdInventoryIds.length === 0) return;
+    await supabase
+      .from("inventory_items")
+      .delete()
+      .in("id", createdInventoryIds);
+  }
+
+  for (const item of parsed.data.items) {
+    if (item.not_in_inventory) {
+      const invPrice = parsed.data.vat_included
+        ? Math.round((item.price_per_m3 / vatFactor) * 10000) / 10000
+        : item.price_per_m3;
+
+      const { data: inv, error: invError } = await supabase
+        .from("inventory_items")
+        .insert({
+          stone_id: item.stone_id,
+          length_m: item.length_m,
+          width_m: item.width_m,
+          height_m: item.height_m,
+          quantity_total: item.quantity,
+          pricing_unit: "m3",
+          price_per_m2: null,
+          price_per_m3: invPrice,
+          customer_price: invPrice,
+          status: "available",
+          finish_level: item.finish_level as InventoryFinishLevelDb,
+          piece_type: item.piece_type as InventoryPieceTypeDb,
+          expected_arrival_date: null,
+        })
+        .select("id")
+        .single();
+
+      if (invError || !inv) {
+        await rollbackCreatedInventory();
+        return {
+          ok: false,
+          message: invError?.message ?? "שגיאה ביצירת פריט מלאי",
+        };
+      }
+
+      createdInventoryIds.push(inv.id as string);
+      resolvedItems.push({
+        stone_id: item.stone_id,
+        inventory_item_id: inv.id as string,
+        length_m: item.length_m,
+        width_m: item.width_m,
+        height_m: item.height_m,
+        quantity: item.quantity,
+        price_per_m3: item.price_per_m3,
+      });
+      continue;
+    }
+
+    resolvedItems.push({
+      stone_id: item.stone_id,
+      inventory_item_id: item.inventory_item_id as string,
+      length_m: item.length_m,
+      width_m: item.width_m,
+      height_m: item.height_m,
+      quantity: item.quantity,
+      price_per_m3: item.price_per_m3,
+    });
+  }
+
+  const { data, error } = await supabase.rpc("crm_create_order_with_items", {
     p_customer_id: parsed.data.customer_id,
     p_priority: parsed.data.priority as PriorityDb,
     p_supply_due_date: parsed.data.supply_due_date || null,
     p_signature_url: parsed.data.signature_url?.trim() || null,
     p_vat_rate: vatRate,
     p_vat_included: parsed.data.vat_included,
-    p_items: parsed.data.items,
+    p_items: resolvedItems,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    await rollbackCreatedInventory();
+    return { ok: false, message: error.message };
+  }
 
   const orderId = data as string;
 

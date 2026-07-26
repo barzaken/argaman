@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { createStone } from "../actions";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -75,12 +79,12 @@ export default function NewStonePage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-background">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
-        className="flex min-h-0 flex-1 flex-col overflow-auto"
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:items-stretch">
           <div className="flex min-h-0 w-full flex-col lg:w-[min(100%,26rem)] lg:shrink-0 lg:border-e lg:border-border xl:w-[min(100%,28rem)]">
             <Section title="פרטי אבן" className="flex-none justify-start py-6">
               <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-end">
@@ -118,7 +122,7 @@ export default function NewStonePage() {
           />
         </div>
 
-        <div className="sticky bottom-0 z-10 flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-8">
+        <FormStickyFooter className="justify-end">
           <Button
             type="button"
             variant="outline"
@@ -129,8 +133,8 @@ export default function NewStonePage() {
           <Button type="submit" disabled={pending}>
             {pending ? "שומר…" : "שמירה"}
           </Button>
-        </div>
+        </FormStickyFooter>
       </form>
-    </div>
+    </FormPageShell>
   );
 }

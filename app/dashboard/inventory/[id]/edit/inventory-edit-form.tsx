@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { updateInventoryItem } from "../../actions";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -324,7 +328,7 @@ export function InventoryEditForm({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-background">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -582,7 +586,7 @@ export function InventoryEditForm({
           </div>
         </div>
 
-        <div className="sticky bottom-0 z-10 flex shrink-0 flex-col gap-3 border-t border-border bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:flex-row md:items-end md:justify-between md:px-8">
+        <FormStickyFooter className="flex-col md:flex-row md:items-end md:justify-between">
           <Field label="סטטוס" className="min-w-[min(100%,12rem)] md:max-w-xs">
             <Select
               dir="rtl"
@@ -632,8 +636,8 @@ export function InventoryEditForm({
               {pending ? "שומר…" : "שמירה"}
             </Button>
           </div>
-        </div>
+        </FormStickyFooter>
       </form>
-    </div>
+    </FormPageShell>
   );
 }

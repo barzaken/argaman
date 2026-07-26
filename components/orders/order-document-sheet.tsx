@@ -13,6 +13,7 @@ import {
   formatIssueDate,
   formatVolumeM3,
 } from "@/lib/db/format";
+import { buildStoneItemNumberMap } from "@/lib/orders/stone-item-numbers";
 
 function lineAreaM2(ln: OrderItemViewRow): number {
   return Number(ln.length_m) * Number(ln.width_m) * Number(ln.quantity);
@@ -57,6 +58,8 @@ export const OrderDocumentSheet = forwardRef<
   const totalAreaM2 = lines
     .filter((ln) => ln.inventory_pricing_unit === "m2")
     .reduce((sum, ln) => sum + lineAreaM2(ln), 0);
+
+  const stoneItemNumbers = buildStoneItemNumberMap(lines);
 
   return (
     <div
@@ -140,11 +143,13 @@ export const OrderDocumentSheet = forwardRef<
                 <th className="ods-num">כמות</th>
                 <th>מידות</th>
                 <th>סוג אבן</th>
+                <th className="ods-num">פריט</th>
               </tr>
             </thead>
             <tbody>
               {lines.map((ln) => {
                 const isM2 = (ln.inventory_pricing_unit ?? "m3") === "m2";
+                const itemNo = stoneItemNumbers.get(ln.stone_id) ?? "—";
 
                 return (
                   <tr key={ln.id}>
@@ -180,6 +185,7 @@ export const OrderDocumentSheet = forwardRef<
                       )}
                     </td>
                     <td>{ln.stone_name}</td>
+                    <td className="ods-num ods-strong">{itemNo}</td>
                   </tr>
                 );
               })}

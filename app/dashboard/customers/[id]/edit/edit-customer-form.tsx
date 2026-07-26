@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { updateCustomer } from "../../actions";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,56 +53,62 @@ export function EditCustomerForm({ customer }: { customer: CustomerRow }) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-auto bg-background">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-lg flex-col gap-6 p-4 md:p-8"
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">עריכת לקוח</h2>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                עריכת לקוח
+              </h2>
+            </div>
+            <Field label="שם">
+              <Input name="name" required defaultValue={customer.name} />
+            </Field>
+            <Field label="ח.פ / ת״ז">
+              <Input
+                name="tax_id"
+                dir="ltr"
+                className="text-start"
+                required
+                defaultValue={customer.tax_id}
+              />
+            </Field>
+            <Field label="דוא״ל">
+              <Input
+                name="email"
+                type="email"
+                dir="ltr"
+                className="text-start"
+                defaultValue={customer.email ?? ""}
+              />
+            </Field>
+            <Field label="טלפון">
+              <Input
+                name="phone"
+                dir="ltr"
+                className="text-start"
+                defaultValue={customer.phone ?? ""}
+              />
+            </Field>
+            <Field label="כתובת">
+              <Textarea
+                name="address"
+                rows={3}
+                defaultValue={customer.address ?? ""}
+              />
+            </Field>
+            {error ? (
+              <p className="text-destructive text-sm" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </div>
         </div>
-        <Field label="שם">
-          <Input name="name" required defaultValue={customer.name} />
-        </Field>
-        <Field label="ח.פ / ת״ז">
-          <Input
-            name="tax_id"
-            dir="ltr"
-            className="text-start"
-            required
-            defaultValue={customer.tax_id}
-          />
-        </Field>
-        <Field label="דוא״ל">
-          <Input
-            name="email"
-            type="email"
-            dir="ltr"
-            className="text-start"
-            defaultValue={customer.email ?? ""}
-          />
-        </Field>
-        <Field label="טלפון">
-          <Input
-            name="phone"
-            dir="ltr"
-            className="text-start"
-            defaultValue={customer.phone ?? ""}
-          />
-        </Field>
-        <Field label="כתובת">
-          <Textarea
-            name="address"
-            rows={3}
-            defaultValue={customer.address ?? ""}
-          />
-        </Field>
-        {error ? (
-          <p className="text-destructive text-sm" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className="flex flex-wrap gap-2">
+        <FormStickyFooter>
           <Button
             type="button"
             variant="outline"
@@ -109,8 +119,8 @@ export function EditCustomerForm({ customer }: { customer: CustomerRow }) {
           <Button type="submit" disabled={pending}>
             {pending ? "שומר…" : "שמירה"}
           </Button>
-        </div>
+        </FormStickyFooter>
       </form>
-    </div>
+    </FormPageShell>
   );
 }

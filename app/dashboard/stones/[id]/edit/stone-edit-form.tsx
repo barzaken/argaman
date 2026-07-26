@@ -6,6 +6,10 @@ import { useState } from "react";
 
 import { archiveStone, updateStone } from "../../actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -248,12 +252,12 @@ export function StoneEditForm({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-background">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
-        className="flex min-h-0 flex-1 flex-col overflow-auto"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:items-stretch lg:overflow-hidden">
           <div className="flex min-h-0 w-full shrink-0 flex-col lg:w-[min(100%,26rem)] lg:border-e lg:border-border xl:w-[min(100%,28rem)]">
             <Section title="עריכת אבן" className="flex-none justify-start py-6">
               <div className="flex w-full flex-col gap-5 sm:flex-row sm:items-end">
@@ -284,7 +288,7 @@ export function StoneEditForm({
             </Section>
           </div>
 
-          <div className="flex min-h-[min(40vh,24rem)] flex-1 flex-col border-t border-border lg:min-h-0 lg:border-t-0">
+          <div className="flex min-h-[min(40vh,24rem)] flex-1 flex-col border-t border-border lg:min-h-0 lg:overflow-hidden lg:border-t-0">
             <StoneRelatedTabs
               inventoryRows={inventoryRows}
               orderRows={orderRows}
@@ -292,7 +296,7 @@ export function StoneEditForm({
           </div>
         </div>
 
-        <div className="sticky bottom-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-8">
+        <FormStickyFooter className="justify-between">
           <Button
             type="button"
             variant="destructive"
@@ -321,8 +325,8 @@ export function StoneEditForm({
               {pending ? "שומר…" : "שמירה"}
             </Button>
           </div>
-        </div>
+        </FormStickyFooter>
       </form>
-    </div>
+    </FormPageShell>
   );
 }

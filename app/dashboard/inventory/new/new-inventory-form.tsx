@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { createInventoryItem } from "../actions";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -161,32 +165,20 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
       setError(res.message);
       return;
     }
-    setSelectedStoneId("");
-    setLengthCm("240");
-    setWidthCm("135");
-    setHeightCm("2");
-    setQuantity("1");
-    setPricingUnit("m3");
-    setPricePerM3("");
-    setPricePerM2("");
-    setCustomerPrice("");
-    setStatus("available");
-    setFinishLevel("halak");
-    setPieceType("panel");
-    setExpectedDate("");
+    router.push("/dashboard/inventory");
     router.refresh();
   }
 
   const selectableStones = stones.filter((s) => s.is_active);
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-y-scroll bg-background">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
-        className="flex min-h-screen overflow-y-scroll flex-1 flex-col overflow-auto"
+        className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch">
-          <div className="flex min-h-0 w-full flex-col lg:w-[min(100%,26rem)] lg:shrink-0 lg:border-e lg:border-border xl:w-[min(100%,28rem)]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:items-stretch">
+          <div className="flex min-h-0 w-full flex-col overflow-y-auto lg:w-[min(100%,26rem)] lg:shrink-0 lg:border-e lg:border-border xl:w-[min(100%,28rem)]">
             <Section
               title="אבן מהקטלוג"
               className="flex-none justify-start border-b border-border py-6 lg:border-b-0 lg:pb-5"
@@ -239,7 +231,7 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
 
             <Section
               title="מידות וכמות"
-              className="flex-none justify-start py-6 lg:pt-2"
+              className="flex-none justify-start py-6 pb-8 lg:pt-2"
             >
               <Tabs
                 value={pricingUnit}
@@ -445,7 +437,7 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
           />
         </div>
 
-        <div className="sticky bottom-0 z-10 flex shrink-0 flex-col gap-3 border-t border-border bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:flex-row md:items-end md:justify-between md:px-8">
+        <FormStickyFooter className="flex-col md:flex-row md:items-end md:justify-between">
           <Field label="סטטוס" className="min-w-[min(100%,12rem)] md:max-w-xs">
             <Select
               dir="rtl"
@@ -493,8 +485,8 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
               {pending ? "שומר…" : "שמירה"}
             </Button>
           </div>
-        </div>
+        </FormStickyFooter>
       </form>
-    </div>
+    </FormPageShell>
   );
 }

@@ -17,6 +17,7 @@ export const INVENTORY_PIECE_TYPE_OPTIONS: {
   { value: "panel", label: "פאנל" },
   { value: "frame", label: "מסגרת" },
   { value: "plate", label: "פלטה" },
+  { value: "standing_stone", label: "אבן עומדת" },
 ];
 
 export const inventoryFinishLevelLabels: Record<
@@ -32,6 +33,7 @@ export const inventoryPieceTypeLabels: Record<InventoryPieceTypeDb, string> = {
   panel: "פאנל",
   frame: "מסגרת",
   plate: "פלטה",
+  standing_stone: "אבן עומדת",
 };
 
 export function inventoryShipmentDescriptor(

@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { createOrderFromQuote } from "../../actions";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -112,11 +116,13 @@ export function ConvertToOrderForm({
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col overflow-y-scroll bg-background p-4 md:p-8">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-[min(100%,56rem)] flex-col gap-6"
+        className="flex min-h-0 flex-1 flex-col"
       >
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="mx-auto flex w-full max-w-[min(100%,56rem)] flex-col gap-6">
         <div>
           <h2 className="text-lg font-semibold text-foreground">
             צור הזמנה מהצעה #{quote.quote_number}
@@ -252,8 +258,10 @@ export function ConvertToOrderForm({
             {error}
           </p>
         ) : null}
+          </div>
+        </div>
 
-        <div className="flex flex-wrap justify-end gap-2">
+        <FormStickyFooter className="justify-end">
           <Button
             type="button"
             variant="outline"
@@ -264,8 +272,8 @@ export function ConvertToOrderForm({
           <Button type="submit" disabled={pending}>
             {pending ? "יוצר הזמנה…" : "יצירת הזמנה"}
           </Button>
-        </div>
+        </FormStickyFooter>
       </form>
-    </div>
+    </FormPageShell>
   );
 }

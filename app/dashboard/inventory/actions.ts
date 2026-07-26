@@ -22,7 +22,7 @@ const inventoryBaseSchema = z.object({
   customer_price: z.coerce.number().nonnegative(),
   status: z.enum(["available", "unavailable", "in_transit"]),
   finish_level: z.enum(["halak", "tuboza", "masmesm"]),
-  piece_type: z.enum(["panel", "frame", "plate"]),
+  piece_type: z.enum(["panel", "frame", "plate", "standing_stone"]),
   expected_arrival_date: z.string().optional().nullable(),
 });
 

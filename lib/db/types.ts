@@ -5,8 +5,12 @@ export type InventoryStatusDb = "available" | "unavailable" | "in_transit";
 /** רמת גימור (משלוח מלאי) */
 export type InventoryFinishLevelDb = "halak" | "tuboza" | "masmesm";
 
-/** סוג חלק: פאנל / מסגרת / פלטה */
-export type InventoryPieceTypeDb = "panel" | "frame" | "plate";
+/** סוג חלק: פאנל / מסגרת / פלטה / אבן עומדת */
+export type InventoryPieceTypeDb =
+  | "panel"
+  | "frame"
+  | "plate"
+  | "standing_stone";
 
 /** יחידת תמחור למלאי */
 export type InventoryPricingUnitDb = "m3" | "m2";

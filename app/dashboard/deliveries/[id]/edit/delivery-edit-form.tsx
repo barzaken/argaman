@@ -4,6 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { markDeliveryPaid, updateDelivery } from "../../actions";
+import { ErrorDialog } from "@/components/error-dialog";
+import {
+  FormPageShell,
+  FormStickyFooter,
+} from "@/components/form-sticky-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ErrorDialog } from "@/components/error-dialog";
 import { cn } from "@/lib/utils";
 import type { DeliveryViewRow } from "@/lib/db/types";
 
@@ -90,11 +94,13 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-auto bg-background p-4 md:p-8">
+    <FormPageShell>
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-lg flex-col gap-6"
+        className="flex min-h-0 flex-1 flex-col"
       >
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
         <h2 className="text-lg font-semibold text-foreground">
           עריכת משלוח #{delivery.delivery_number}
         </h2>
@@ -218,27 +224,31 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
             {error}
           </p>
         ) : null}
+          </div>
+        </div>
 
-        <div className="flex flex-wrap gap-2">
+        <FormStickyFooter className="justify-between">
           <Button type="button" variant="outline" onClick={() => void handlePaid()}>
             סמן כשולם
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push(`/dashboard/deliveries/${delivery.id}`)}
-          >
-            ביטול
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? "שומר…" : "שמירה"}
-          </Button>
-        </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/dashboard/deliveries/${delivery.id}`)}
+            >
+              ביטול
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "שומר…" : "שמירה"}
+            </Button>
+          </div>
+        </FormStickyFooter>
       </form>
       <ErrorDialog
         message={dialogError}
         onClose={() => setDialogError(null)}
       />
-    </div>
+    </FormPageShell>
   );
 }
