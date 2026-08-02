@@ -122,6 +122,34 @@ export function quoteMeasurePreviewLabel(unit: QuotePricingUnit): string {
   }
 }
 
+/** נרמול מחיר שורת הצעה למחיר לקו״ב (לתאימות הזמנה / מלאי) */
+export function quoteItemPricePerM3ForOrder(item: {
+  pricing_unit: QuotePricingUnit;
+  length_m: number;
+  width_m: number;
+  height_m: number;
+  price_per_m3: number | null;
+  price_per_m2: number | null;
+  price_per_unit: number | null;
+}): number | null {
+  const lengthM = Number(item.length_m);
+  const widthM = Number(item.width_m);
+  const heightM = Number(item.height_m);
+  if (item.pricing_unit === "m3") {
+    const p = Number(item.price_per_m3);
+    return Number.isNaN(p) ? null : p;
+  }
+  if (item.pricing_unit === "m2") {
+    const p = Number(item.price_per_m2);
+    if (Number.isNaN(p) || heightM <= 0) return null;
+    return Math.round((p / heightM) * 10000) / 10000;
+  }
+  const p = Number(item.price_per_unit);
+  const vol = lengthM * widthM * heightM;
+  if (Number.isNaN(p) || vol <= 0) return null;
+  return Math.round((p / vol) * 10000) / 10000;
+}
+
 /** מחושב על בסיס סכום לפני מע״מ */
 export function computeVatAmount(
   subtotalExVat: number,

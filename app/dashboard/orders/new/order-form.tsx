@@ -44,6 +44,7 @@ import { formatIls, formatVolumeM3 } from "@/lib/db/format";
 import { groupLinesByStone } from "@/lib/orders/stone-item-numbers";
 
 const VAT_RATE = 0.18;
+const NOT_IN_STOCK = "__not_in_inventory__";
 
 function newLineKey(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -70,6 +71,7 @@ function newEmptyLine(
   opts: {
     notInInventory?: boolean;
     stoneId?: string;
+    pricePerM3?: string;
   } = {}
 ): Line {
   return {
@@ -83,7 +85,7 @@ function newEmptyLine(
     width_cm: "",
     height_cm: "",
     quantity: "1",
-    price_per_m3: "",
+    price_per_m3: opts.pricePerM3 ?? "",
   };
 }
 
@@ -212,11 +214,7 @@ function validateLines(lines: Line[]): string | null {
 }
 
 function linePreview(ln: Line, vatIncluded: boolean) {
-  const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
-  const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
-  const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
-  const Q = parseInt(ln.quantity.replace(",", "."), 10) || 0;
-  const p = parseFloat(ln.price_per_m3.replace(",", ".")) || 0;
+  const { L, W, H, Q, p } = parseLineNumbers(ln);
   const vol =
     L && W && H && Q
       ? computeVolumeM3FromCm({
@@ -294,7 +292,6 @@ export function OrderForm({
         buildLineFromInventory(inv, customerId, inventory, overrides)
       );
     if (seeded.length > 0) setLines(seeded);
-    // Seed once on mount from URL param; customer prices refresh via handleCustomerChange.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single-run seed
   }, [initialInventoryIds, inventory, overrides]);
 
@@ -309,14 +306,31 @@ export function OrderForm({
 
   function handleCustomerChange(nextCustomerId: string) {
     setCustomerId(nextCustomerId);
-    setLines((prev) =>
-      prev.map((ln) => {
-        if (ln.not_in_inventory || !ln.inventory_item_id) return ln;
-        const dp = linePrice(ln.inventory_item_id, nextCustomerId);
+    setLines((prev) => {
+      const groups = groupLinesByStone(prev);
+      return prev.map((ln) => {
+        if (ln.not_in_inventory) {
+          const ov = overrides.find(
+            (o) =>
+              o.customer_id === nextCustomerId && o.stone_id === ln.stone_id
+          );
+          if (ov?.price_per_m3 != null) {
+            return { ...ln, price_per_m3: String(ov.price_per_m3) };
+          }
+          return ln;
+        }
+        if (!ln.inventory_item_id) return ln;
+        const group = groups.find((g) =>
+          g.lines.some((x) => x.key === ln.key)
+        );
+        const firstInv =
+          group?.lines.find((x) => x.inventory_item_id)?.inventory_item_id ??
+          ln.inventory_item_id;
+        const dp = linePrice(firstInv, nextCustomerId);
         if (dp == null || Number.isNaN(dp)) return ln;
         return { ...ln, price_per_m3: String(dp) };
-      })
-    );
+      });
+    });
   }
 
   function inventoryForStone(stoneId: string) {
@@ -338,21 +352,30 @@ export function OrderForm({
     return ov?.price_per_m3 != null ? Number(ov.price_per_m3) : null;
   }
 
-  function updateLine(key: string, patch: Partial<Line>) {
+  function setGroupPrice(groupKeys: string[], price: string) {
+    const keySet = new Set(groupKeys);
     setLines((prev) =>
-      prev.map((ln) => {
+      prev.map((ln) =>
+        keySet.has(ln.key) ? { ...ln, price_per_m3: price } : ln
+      )
+    );
+  }
+
+  function updateLine(key: string, patch: Partial<Line>) {
+    setLines((prev) => {
+      const groups = groupLinesByStone(prev);
+      return prev.map((ln) => {
         if (ln.key !== key) return ln;
         const next = { ...ln, ...patch };
+
         if (patch.not_in_inventory === true && !ln.not_in_inventory) {
           next.inventory_item_id = "";
-          const ov = customerOverridePrice(next.stone_id);
-          if (ov != null && !Number.isNaN(ov)) {
-            next.price_per_m3 = String(ov);
-          }
         }
+
         if (
           patch.inventory_item_id != null &&
-          patch.inventory_item_id !== ln.inventory_item_id
+          patch.inventory_item_id !== ln.inventory_item_id &&
+          patch.inventory_item_id !== ""
         ) {
           next.not_in_inventory = false;
           const invRow = inventory.find(
@@ -364,68 +387,64 @@ export function OrderForm({
             next.height_cm = metersToCmInput(Number(invRow.height_m));
             next.finish_level = invRow.finish_level;
             next.piece_type = invRow.piece_type;
-            const dp = linePrice(invRow.id, customerId);
-            if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
-          }
-        }
-        if (patch.stone_id != null && patch.stone_id !== ln.stone_id) {
-          if (next.not_in_inventory) {
-            next.inventory_item_id = "";
-            const ov = customerOverridePrice(patch.stone_id);
-            if (ov != null && !Number.isNaN(ov)) {
-              next.price_per_m3 = String(ov);
-            } else if (!ln.price_per_m3.trim()) {
-              next.price_per_m3 = "";
-            }
-          } else {
-            next.inventory_item_id = "";
-            next.length_cm = "";
-            next.width_cm = "";
-            next.height_cm = "";
-            next.price_per_m3 = "";
-            const opts = inventoryForStone(patch.stone_id);
-            if (opts.length === 1) {
-              const inv = opts[0];
-              next.inventory_item_id = inv.id;
-              next.length_cm = metersToCmInput(Number(inv.length_m));
-              next.width_cm = metersToCmInput(Number(inv.width_m));
-              next.height_cm = metersToCmInput(Number(inv.height_m));
-              next.finish_level = inv.finish_level;
-              next.piece_type = inv.piece_type;
-              const dp = linePrice(inv.id, customerId);
-              if (dp != null && !Number.isNaN(dp))
+            // Fill shared group price only if empty
+            const group = groups.find((g) =>
+              g.lines.some((x) => x.key === key)
+            );
+            const groupHasPrice = group?.lines.some((x) =>
+              x.price_per_m3.trim()
+            );
+            if (!groupHasPrice && !ln.price_per_m3.trim()) {
+              const dp = linePrice(invRow.id, customerId);
+              if (dp != null && !Number.isNaN(dp)) {
                 next.price_per_m3 = String(dp);
-            } else if (opts.length > 0) {
-              const dp = linePrice(opts[0].id, customerId);
-              if (dp != null && !Number.isNaN(dp))
-                next.price_per_m3 = String(dp);
+              }
             }
           }
         }
         return next;
-      })
-    );
+      });
+    });
+
+    // After inventory pick with empty group price — sync price to whole group
+    if (patch.inventory_item_id) {
+      const invRow = inventory.find((i) => i.id === patch.inventory_item_id);
+      if (invRow) {
+        setLines((prev) => {
+          const groups = groupLinesByStone(prev);
+          const group = groups.find((g) =>
+            g.lines.some((x) => x.key === key)
+          );
+          if (!group) return prev;
+          const groupHasPrice = group.lines.some((x) => x.price_per_m3.trim());
+          if (groupHasPrice) return prev;
+          const dp = linePrice(invRow.id, customerId);
+          if (dp == null || Number.isNaN(dp)) return prev;
+          const keySet = new Set(group.lines.map((x) => x.key));
+          return prev.map((ln) =>
+            keySet.has(ln.key) ? { ...ln, price_per_m3: String(dp) } : ln
+          );
+        });
+      }
+    }
   }
 
-  /** Change stone for an entire item block (all rows of that stone). */
   function setGroupStone(groupKeys: string[], nextStoneId: string) {
     setLines((prev) => {
       const keySet = new Set(groupKeys);
+      const ov = customerOverridePrice(nextStoneId);
       return prev.map((ln) => {
         if (!keySet.has(ln.key)) return ln;
         if (ln.stone_id === nextStoneId) return ln;
-        const next: Line = { ...ln, stone_id: nextStoneId };
-        if (next.not_in_inventory) {
-          next.inventory_item_id = "";
-          const ov = customerOverridePrice(nextStoneId);
-          if (ov != null && !Number.isNaN(ov)) next.price_per_m3 = String(ov);
-          else if (!ln.price_per_m3.trim()) next.price_per_m3 = "";
-        } else {
-          next.inventory_item_id = "";
+        const next: Line = {
+          ...ln,
+          stone_id: nextStoneId,
+          inventory_item_id: "",
+        };
+        if (!next.not_in_inventory) {
           next.length_cm = "";
           next.width_cm = "";
           next.height_cm = "";
-          next.price_per_m3 = "";
           const opts = inventoryForStone(nextStoneId);
           if (opts.length === 1) {
             const inv = opts[0];
@@ -435,9 +454,12 @@ export function OrderForm({
             next.height_cm = metersToCmInput(Number(inv.height_m));
             next.finish_level = inv.finish_level;
             next.piece_type = inv.piece_type;
-            const dp = linePrice(inv.id, customerId);
-            if (dp != null && !Number.isNaN(dp)) next.price_per_m3 = String(dp);
           }
+        }
+        if (ov != null && !Number.isNaN(ov)) {
+          next.price_per_m3 = String(ov);
+        } else if (!ln.price_per_m3.trim()) {
+          next.price_per_m3 = "";
         }
         return next;
       });
@@ -445,10 +467,19 @@ export function OrderForm({
   }
 
   function addRowToGroup(stoneId: string, notInInventory: boolean) {
-    setLines((prev) => [
-      ...prev,
-      newEmptyLine({ notInInventory, stoneId }),
-    ]);
+    setLines((prev) => {
+      const group = groupLinesByStone(prev).find((g) => g.stone_id === stoneId);
+      const sharedPrice = group?.lines.find((x) => x.price_per_m3.trim())
+        ?.price_per_m3;
+      return [
+        ...prev,
+        newEmptyLine({
+          notInInventory,
+          stoneId,
+          pricePerM3: sharedPrice,
+        }),
+      ];
+    });
   }
 
   function removeLine(key: string) {
@@ -470,24 +501,9 @@ export function OrderForm({
     let subtotalEx = 0;
     let totalVolumeM3 = 0;
     for (const ln of lines) {
-      const L = parseFloat(ln.length_cm.replace(",", ".")) || 0;
-      const W = parseFloat(ln.width_cm.replace(",", ".")) || 0;
-      const H = parseFloat(ln.height_cm.replace(",", ".")) || 0;
-      const Q = parseInt(ln.quantity.replace(",", "."), 10) || 0;
-      const p = parseFloat(ln.price_per_m3.replace(",", ".")) || 0;
-      if (!L || !W || !H || !Q) continue;
-      const vol = computeVolumeM3FromCm({
-        lengthCm: L,
-        widthCm: W,
-        heightCm: H,
-        quantity: Q,
-      });
-      totalVolumeM3 += vol;
-      if (!p) continue;
-      const priceEx = vatIncluded
-        ? pricePerM3ExVatFromInclusive(p, VAT_RATE)
-        : p;
-      subtotalEx += computeLineSubtotal(vol, priceEx);
+      const { vol, lineSub } = linePreview(ln, vatIncluded);
+      if (vol != null) totalVolumeM3 += vol;
+      if (lineSub != null) subtotalEx += lineSub;
     }
     const vat = computeVatAmount(subtotalEx, VAT_RATE);
     const total = computeTotalWithVat(subtotalEx, VAT_RATE);
@@ -560,8 +576,8 @@ export function OrderForm({
                 תעודת הזמנה חדשה
               </h2>
               <p className="text-muted-foreground text-sm">
-                כל סוג אבן הוא פריט אחד — אפשר להוסיף כמה שורות (משלוחים)
-                בתוך אותו פריט.
+                כל סוג אבן = פריט אחד. הוסיפו שורות מידות בתוך הפריט —
+                המחיר מחושב יחד.
               </p>
             </div>
 
@@ -635,31 +651,16 @@ export function OrderForm({
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold text-foreground">פריטים</h3>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setLines((prev) => [
-                        ...prev,
-                        newEmptyLine({ notInInventory: true }),
-                      ])
-                    }
-                  >
-                    פריט שלא במלאי
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setLines((prev) => [...prev, newEmptyLine()])
-                    }
-                  >
-                    פריט חדש
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setLines((prev) => [...prev, newEmptyLine()])
+                  }
+                >
+                  פריט חדש
+                </Button>
               </div>
 
               {stoneGroups.map((group) => {
@@ -672,11 +673,30 @@ export function OrderForm({
                         stoneName ? ` · ${stoneName}` : ""
                       }`
                     : "פריט חדש";
+                const sharedPrice =
+                  group.lines.find((x) => x.price_per_m3.trim())
+                    ?.price_per_m3 ?? "";
+
+                let groupVol = 0;
+                let groupSub = 0;
+                let hasVol = false;
+                let hasSub = false;
+                for (const ln of group.lines) {
+                  const { vol, lineSub } = linePreview(ln, vatIncluded);
+                  if (vol != null) {
+                    groupVol += vol;
+                    hasVol = true;
+                  }
+                  if (lineSub != null) {
+                    groupSub += lineSub;
+                    hasSub = true;
+                  }
+                }
 
                 return (
                   <div
                     key={group.groupKey}
-                    className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4"
+                    className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-foreground">
@@ -684,265 +704,258 @@ export function OrderForm({
                       </span>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => removeGroup(groupLineKeys)}
                       >
-                        הסרת פריט
+                        הסרה
                       </Button>
                     </div>
 
-                    <Field label="סוג אבן">
-                      <Select
-                        dir="rtl"
-                        value={group.stone_id || undefined}
-                        onValueChange={(v) =>
-                          setGroupStone(groupLineKeys, v)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="בחר אבן" />
-                        </SelectTrigger>
-                        <SelectContent dir="rtl">
-                          {stones.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
+                    <div className="grid gap-3 sm:grid-cols-[1fr_8rem_minmax(0,1fr)] sm:items-end">
+                      <Field label="סוג אבן">
+                        <Select
+                          dir="rtl"
+                          value={group.stone_id || undefined}
+                          onValueChange={(v) =>
+                            setGroupStone(groupLineKeys, v)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="בחר אבן" />
+                          </SelectTrigger>
+                          <SelectContent dir="rtl">
+                            {stones.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="מחיר לקו״ב">
+                        <Input
+                          dir="ltr"
+                          inputMode="decimal"
+                          value={sharedPrice}
+                          onChange={(e) =>
+                            setGroupPrice(groupLineKeys, e.target.value)
+                          }
+                          placeholder="0"
+                        />
+                      </Field>
+                      <div className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-sm tabular-nums">
+                        <span className="text-muted-foreground">סה״כ פריט: </span>
+                        {hasVol
+                          ? `${formatVolumeM3(groupVol)} קו״ב`
+                          : "—"}{" "}
+                        · {hasSub ? formatIls(groupSub) : "—"}
+                      </div>
+                    </div>
 
-                    <div className="flex flex-col gap-3">
-                      {group.lines.map((ln, rowIdx) => {
+                    <div className="flex flex-col gap-2">
+                      <div className="hidden text-muted-foreground grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,5rem))_minmax(0,4.5rem)_auto] gap-2 text-xs sm:grid">
+                        <span>מקור</span>
+                        <span>גובה</span>
+                        <span>רוחב</span>
+                        <span>אורך</span>
+                        <span>כמות</span>
+                        <span>נפח</span>
+                        <span />
+                      </div>
+
+                      {group.lines.map((ln) => {
                         const invOptions = ln.stone_id
                           ? inventoryForStone(ln.stone_id)
                           : [];
-                        const { vol, lineSub } = linePreview(ln, vatIncluded);
+                        const { vol } = linePreview(ln, vatIncluded);
+                        const sourceValue = ln.not_in_inventory
+                          ? NOT_IN_STOCK
+                          : ln.inventory_item_id || undefined;
 
                         return (
                           <div
                             key={ln.key}
-                            className="flex flex-col gap-3 rounded-md border border-border/80 bg-muted/20 p-3"
+                            className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/10 p-2 sm:gap-2"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-muted-foreground text-xs">
-                                  שורה {rowIdx + 1}
-                                </span>
-                                {ln.not_in_inventory ? (
-                                  <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                                    לא במלאי · ייווצר וייגרע
-                                  </span>
-                                ) : null}
+                            <div className="grid gap-2 sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,5rem))_minmax(0,4.5rem)_auto] sm:items-center">
+                              <Select
+                                dir="rtl"
+                                value={sourceValue}
+                                onValueChange={(v) => {
+                                  if (v === NOT_IN_STOCK) {
+                                    updateLine(ln.key, {
+                                      not_in_inventory: true,
+                                      inventory_item_id: "",
+                                    });
+                                    return;
+                                  }
+                                  updateLine(ln.key, {
+                                    not_in_inventory: false,
+                                    inventory_item_id: v,
+                                  });
+                                }}
+                                disabled={!ln.stone_id}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="משלוח / לא במלאי" />
+                                </SelectTrigger>
+                                <SelectContent dir="rtl">
+                                  <SelectItem value={NOT_IN_STOCK}>
+                                    לא במלאי
+                                  </SelectItem>
+                                  {invOptions.map((i) => (
+                                    <SelectItem
+                                      key={i.id}
+                                      value={i.id}
+                                      textValue={formatInventoryShipmentSelectLabel(
+                                        i
+                                      )}
+                                    >
+                                      {formatInventoryShipmentSelectLabel(i)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              <Input
+                                dir="ltr"
+                                inputMode="decimal"
+                                aria-label="גובה ס״מ"
+                                placeholder="גובה"
+                                value={ln.height_cm}
+                                onChange={(e) =>
+                                  updateLine(ln.key, {
+                                    height_cm: e.target.value,
+                                  })
+                                }
+                              />
+                              <Input
+                                dir="ltr"
+                                inputMode="decimal"
+                                aria-label="רוחב ס״מ"
+                                placeholder="רוחב"
+                                value={ln.width_cm}
+                                onChange={(e) =>
+                                  updateLine(ln.key, {
+                                    width_cm: e.target.value,
+                                  })
+                                }
+                              />
+                              <Input
+                                dir="ltr"
+                                inputMode="decimal"
+                                aria-label="אורך ס״מ"
+                                placeholder="אורך"
+                                value={ln.length_cm}
+                                onChange={(e) =>
+                                  updateLine(ln.key, {
+                                    length_cm: e.target.value,
+                                  })
+                                }
+                              />
+                              <Input
+                                dir="ltr"
+                                inputMode="numeric"
+                                aria-label="כמות"
+                                placeholder="כמות"
+                                value={ln.quantity}
+                                onChange={(e) =>
+                                  updateLine(ln.key, {
+                                    quantity: e.target.value,
+                                  })
+                                }
+                              />
+                              <div className="text-muted-foreground px-1 text-xs tabular-nums">
+                                {vol != null
+                                  ? formatVolumeM3(vol)
+                                  : "—"}
                               </div>
                               {group.lines.length > 1 ? (
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
+                                  className="justify-self-start"
                                   onClick={() => removeLine(ln.key)}
                                 >
-                                  הסרת שורה
+                                  ×
                                 </Button>
-                              ) : null}
+                              ) : (
+                                <span />
+                              )}
                             </div>
 
                             {ln.not_in_inventory ? (
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                <Field label="רמת גימור">
-                                  <Select
-                                    dir="rtl"
-                                    value={ln.finish_level}
-                                    onValueChange={(v) =>
-                                      updateLine(ln.key, {
-                                        finish_level:
-                                          v as InventoryFinishLevelDb,
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent dir="rtl">
-                                      {INVENTORY_FINISH_LEVEL_OPTIONS.map(
-                                        (o) => (
-                                          <SelectItem
-                                            key={o.value}
-                                            value={o.value}
-                                          >
-                                            {o.label}
-                                          </SelectItem>
-                                        )
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                </Field>
-                                <Field label="חלק">
-                                  <Select
-                                    dir="rtl"
-                                    value={ln.piece_type}
-                                    onValueChange={(v) =>
-                                      updateLine(ln.key, {
-                                        piece_type: v as InventoryPieceTypeDb,
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent dir="rtl">
-                                      {INVENTORY_PIECE_TYPE_OPTIONS.map(
-                                        (o) => (
-                                          <SelectItem
-                                            key={o.value}
-                                            value={o.value}
-                                          >
-                                            {o.label}
-                                          </SelectItem>
-                                        )
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                </Field>
-                              </div>
-                            ) : (
-                              <Field label="משלוח במלאי">
+                              <div className="grid gap-2 sm:grid-cols-2">
                                 <Select
                                   dir="rtl"
-                                  value={ln.inventory_item_id || undefined}
+                                  value={ln.finish_level}
                                   onValueChange={(v) =>
                                     updateLine(ln.key, {
-                                      inventory_item_id: v,
+                                      finish_level:
+                                        v as InventoryFinishLevelDb,
                                     })
                                   }
-                                  disabled={!ln.stone_id}
                                 >
                                   <SelectTrigger>
-                                    <SelectValue placeholder="בחר משלוח" />
+                                    <SelectValue placeholder="גימור" />
                                   </SelectTrigger>
                                   <SelectContent dir="rtl">
-                                    {invOptions.map((i) => (
+                                    {INVENTORY_FINISH_LEVEL_OPTIONS.map(
+                                      (o) => (
+                                        <SelectItem
+                                          key={o.value}
+                                          value={o.value}
+                                        >
+                                          {o.label}
+                                        </SelectItem>
+                                      )
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                                <Select
+                                  dir="rtl"
+                                  value={ln.piece_type}
+                                  onValueChange={(v) =>
+                                    updateLine(ln.key, {
+                                      piece_type: v as InventoryPieceTypeDb,
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="חלק" />
+                                  </SelectTrigger>
+                                  <SelectContent dir="rtl">
+                                    {INVENTORY_PIECE_TYPE_OPTIONS.map((o) => (
                                       <SelectItem
-                                        key={i.id}
-                                        value={i.id}
-                                        textValue={formatInventoryShipmentSelectLabel(
-                                          i
-                                        )}
+                                        key={o.value}
+                                        value={o.value}
                                       >
-                                        {formatInventoryShipmentSelectLabel(i)}
+                                        {o.label}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
-                              </Field>
-                            )}
-
-                            <div className="grid gap-3 sm:grid-cols-4">
-                              <Field label="גובה / עובי (ס״מ)">
-                                <Input
-                                  dir="ltr"
-                                  inputMode="decimal"
-                                  value={ln.height_cm}
-                                  onChange={(e) =>
-                                    updateLine(ln.key, {
-                                      height_cm: e.target.value,
-                                    })
-                                  }
-                                />
-                              </Field>
-                              <Field label="רוחב (ס״מ)">
-                                <Input
-                                  dir="ltr"
-                                  inputMode="decimal"
-                                  value={ln.width_cm}
-                                  onChange={(e) =>
-                                    updateLine(ln.key, {
-                                      width_cm: e.target.value,
-                                    })
-                                  }
-                                />
-                              </Field>
-                              <Field label="אורך (ס״מ)">
-                                <Input
-                                  dir="ltr"
-                                  inputMode="decimal"
-                                  value={ln.length_cm}
-                                  onChange={(e) =>
-                                    updateLine(ln.key, {
-                                      length_cm: e.target.value,
-                                    })
-                                  }
-                                />
-                              </Field>
-                              <Field label="כמות">
-                                <Input
-                                  dir="ltr"
-                                  inputMode="numeric"
-                                  value={ln.quantity}
-                                  onChange={(e) =>
-                                    updateLine(ln.key, {
-                                      quantity: e.target.value,
-                                    })
-                                  }
-                                />
-                              </Field>
-                            </div>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <Field label="מחיר לקו״ב (₪)">
-                                <Input
-                                  dir="ltr"
-                                  inputMode="decimal"
-                                  value={ln.price_per_m3}
-                                  onChange={(e) =>
-                                    updateLine(ln.key, {
-                                      price_per_m3: e.target.value,
-                                    })
-                                  }
-                                />
-                              </Field>
-                              <Field label="תצוגת שורה (נטו לפני מע״מ)">
-                                <div className="rounded-lg border border-dashed border-border bg-muted/40 px-2 py-2 text-sm tabular-nums">
-                                  נפח:{" "}
-                                  {vol != null
-                                    ? new Intl.NumberFormat("he-IL", {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 4,
-                                      }).format(vol)
-                                    : "—"}{" "}
-                                  · סכום:{" "}
-                                  {lineSub != null ? formatIls(lineSub) : "—"}
-                                </div>
-                              </Field>
-                            </div>
+                              </div>
+                            ) : null}
                           </div>
                         );
                       })}
                     </div>
 
                     {group.stone_id ? (
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            addRowToGroup(group.stone_id, false)
-                          }
-                        >
-                          שורה ממלאי
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            addRowToGroup(group.stone_id, true)
-                          }
-                        >
-                          שורה שלא במלאי
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="self-start"
+                        onClick={() =>
+                          addRowToGroup(group.stone_id, false)
+                        }
+                      >
+                        + שורה
+                      </Button>
                     ) : null}
                   </div>
                 );
