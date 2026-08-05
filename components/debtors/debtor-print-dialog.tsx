@@ -1,0 +1,260 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Download, Printer } from "lucide-react";
+
+import {
+  getDebtorPrintData,
+  type DebtorPrintData,
+} from "@/app/dashboard/debtors/actions";
+import { DebtorSummaryDocumentSheet } from "@/components/debtors/debtor-summary-document-sheet";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { DebtorsViewRow } from "@/lib/db/types";
+import { formatIls } from "@/lib/db/format";
+import {
+  downloadDebtorSummaryPdf,
+  printDocument,
+} from "@/lib/orders/document-export";
+
+type ExportMode = "print" | "download";
+
+export function DebtorPrintDialog({
+  open,
+  onOpenChange,
+  customerName,
+  deliveries,
+  onError,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  customerName: string;
+  deliveries: DebtorsViewRow[];
+  onError: (message: string) => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(deliveries.map((d) => d.delivery_id))
+  );
+  const [busyMode, setBusyMode] = useState<ExportMode | null>(null);
+  const [printData, setPrintData] = useState<DebtorPrintData | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const pendingModeRef = useRef<ExportMode | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setSelected(new Set(deliveries.map((d) => d.delivery_id)));
+      setPrintData(null);
+      setBusyMode(null);
+      pendingModeRef.current = null;
+    }
+  }, [open, deliveries]);
+
+  useEffect(() => {
+    const mode = pendingModeRef.current;
+    if (!printData || !mode) return;
+
+    let cancelled = false;
+
+    async function runExport() {
+      const el = sheetRef.current;
+      if (!el) {
+        pendingModeRef.current = null;
+        setBusyMode(null);
+        setPrintData(null);
+        onError("לא ניתן להכין את המסמך");
+        return;
+      }
+
+      try {
+        if (mode === "print") {
+          await printDocument(el);
+        } else {
+          await downloadDebtorSummaryPdf(el, customerName);
+        }
+        if (!cancelled) onOpenChange(false);
+      } catch {
+        if (!cancelled) {
+          onError(
+            mode === "print"
+              ? "שגיאה בהדפסה. נסו שוב."
+              : "שגיאה בהורדת PDF. נסו שוב."
+          );
+        }
+      } finally {
+        pendingModeRef.current = null;
+        if (!cancelled) {
+          setBusyMode(null);
+          setPrintData(null);
+        }
+      }
+    }
+
+    const id = window.requestAnimationFrame(() => {
+      void runExport();
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(id);
+    };
+  }, [printData, onOpenChange, onError, customerName]);
+
+  const busy = busyMode !== null;
+
+  const selectedTotal = deliveries
+    .filter((d) => selected.has(d.delivery_id))
+    .reduce((s, d) => s + Number(d.total), 0);
+
+  function toggle(id: string, checked: boolean | "indeterminate") {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked === true) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleAll(checked: boolean | "indeterminate") {
+    if (checked === true) {
+      setSelected(new Set(deliveries.map((d) => d.delivery_id)));
+    } else {
+      setSelected(new Set());
+    }
+  }
+
+  const allSelected =
+    deliveries.length > 0 && selected.size === deliveries.length;
+  const someSelected = selected.size > 0 && selected.size < deliveries.length;
+
+  async function startExport(mode: ExportMode) {
+    if (selected.size === 0) {
+      onError("יש לבחור לפחות תעודה אחת");
+      return;
+    }
+
+    setBusyMode(mode);
+    try {
+      const res = await getDebtorPrintData([...selected]);
+      if (!res.ok) {
+        onError(res.message);
+        setBusyMode(null);
+        return;
+      }
+
+      pendingModeRef.current = mode;
+      setPrintData(res.data);
+    } catch {
+      setBusyMode(null);
+      onError("שגיאה בהכנת המסמך. נסו שוב.");
+    }
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent dir="rtl" className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>סיכום חוב</DialogTitle>
+            <DialogDescription>
+              בחרו אילו תעודות משלוח לכלול במסמך הסיכום עבור {customerName}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3">
+            <label className="flex items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+              <Checkbox
+                checked={
+                  allSelected ? true : someSelected ? "indeterminate" : false
+                }
+                onCheckedChange={toggleAll}
+                disabled={busy}
+              />
+              <span className="font-medium">בחר הכל</span>
+            </label>
+
+            <ul className="flex max-h-64 flex-col gap-2 overflow-auto">
+              {deliveries.map((d) => (
+                <li key={d.delivery_id}>
+                  <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2 text-sm hover:bg-muted/40">
+                    <span className="flex min-w-0 items-center gap-3">
+                      <Checkbox
+                        checked={selected.has(d.delivery_id)}
+                        onCheckedChange={(c) => toggle(d.delivery_id, c)}
+                        disabled={busy}
+                      />
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="font-medium">
+                          משלוח #{d.delivery_number} · הזמנה #{d.order_number}
+                        </span>
+                        <span className="text-muted-foreground text-xs">
+                          יעד תשלום: {d.payment_due_date ?? "—"}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 tabular-nums font-medium">
+                      {formatIls(Number(d.total))}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+              <span className="text-muted-foreground">
+                {selected.size} נבחרו · סה״כ לתשלום
+              </span>
+              <span className="tabular-nums font-semibold">
+                {formatIls(selectedTotal)}
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => onOpenChange(false)}
+            >
+              ביטול
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || selected.size === 0}
+              onClick={() => void startExport("download")}
+            >
+              <Download data-icon="inline-start" />
+              {busyMode === "download" ? "מוריד…" : "הורדת PDF"}
+            </Button>
+            <Button
+              type="button"
+              disabled={busy || selected.size === 0}
+              onClick={() => void startExport("print")}
+            >
+              <Printer data-icon="inline-start" />
+              {busyMode === "print" ? "מדפיס…" : "הדפסה"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {printData ? (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed -left-[10000px] top-0 z-[-1] overflow-visible"
+        >
+          <DebtorSummaryDocumentSheet ref={sheetRef} data={printData} />
+        </div>
+      ) : null}
+    </>
+  );
+}

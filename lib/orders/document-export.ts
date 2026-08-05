@@ -109,7 +109,8 @@ async function canvasFromElement(element: HTMLElement): Promise<HTMLCanvasElemen
 
   const contentWidth = element.scrollWidth || element.offsetWidth || 794;
   const contentHeight = element.scrollHeight || element.offsetHeight || 1123;
-  const scale = Math.min(2, 4096 / Math.max(contentWidth, contentHeight, 1));
+  // Keep canvas within browser limits while preserving full document height.
+  const scale = Math.min(2, 8192 / Math.max(contentWidth, contentHeight, 1));
 
   return html2canvas(element, {
     scale,
@@ -157,29 +158,48 @@ function addCanvasToPdf(canvas: HTMLCanvasElement, pdf: jsPDF): void {
   const printableHeight = pageHeight - margin * 2;
 
   const imgWidth = printableWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
-  const imgData = canvas.toDataURL("image/jpeg", 0.92);
+  const imgHeightMm = (canvas.height * imgWidth) / canvas.width;
 
-  if (imgHeight <= 0 || !Number.isFinite(imgHeight)) {
+  if (imgHeightMm <= 0 || !Number.isFinite(imgHeightMm)) {
     throw new Error("גודל תמונה לא תקין");
   }
 
-  let offset = 0;
-  let page = 0;
-  const maxPages = Math.ceil(imgHeight / printableHeight) + 1;
+  // Slice the tall canvas into page-sized pieces so content is not clipped
+  // across page boundaries (negative-Y full-image placement breaks in print).
+  const pageHeightPx = (printableHeight / imgHeightMm) * canvas.height;
+  const totalPages = Math.max(1, Math.ceil(canvas.height / pageHeightPx));
 
-  while (offset < imgHeight && page < maxPages) {
-    if (page > 0) pdf.addPage();
-    pdf.addImage(
-      imgData,
-      "JPEG",
-      margin,
-      margin - offset,
-      imgWidth,
-      imgHeight
+  for (let page = 0; page < totalPages; page += 1) {
+    const srcY = page * pageHeightPx;
+    const sliceHeightPx = Math.min(pageHeightPx, canvas.height - srcY);
+    if (sliceHeightPx <= 0) break;
+
+    const sliceCanvas = document.createElement("canvas");
+    sliceCanvas.width = canvas.width;
+    sliceCanvas.height = Math.max(1, Math.ceil(sliceHeightPx));
+
+    const ctx = sliceCanvas.getContext("2d");
+    if (!ctx) throw new Error("יצירת עמוד PDF נכשלה");
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+    ctx.drawImage(
+      canvas,
+      0,
+      srcY,
+      canvas.width,
+      sliceHeightPx,
+      0,
+      0,
+      canvas.width,
+      sliceHeightPx
     );
-    offset += printableHeight;
-    page += 1;
+
+    const sliceHeightMm = (sliceHeightPx * imgWidth) / canvas.width;
+    const imgData = sliceCanvas.toDataURL("image/jpeg", 0.92);
+
+    if (page > 0) pdf.addPage();
+    pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, sliceHeightMm);
   }
 }
 
@@ -274,4 +294,12 @@ export async function downloadQuoteDocumentPdf(
   quoteNumber: number
 ): Promise<void> {
   await downloadDocumentPdf(sheetEl, `הצעת-מחיר-${quoteNumber}.pdf`);
+}
+
+export async function downloadDebtorSummaryPdf(
+  sheetEl: HTMLElement,
+  customerName: string
+): Promise<void> {
+  const safeName = customerName.replace(/[\\/:*?"<>|]+/g, "-").trim() || "לקוח";
+  await downloadDocumentPdf(sheetEl, `סיכום-חוב-${safeName}.pdf`);
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ChevronDown, Printer } from "lucide-react";
 
 import {
   Collapsible,
@@ -11,21 +12,22 @@ import {
 import { Button } from "@/components/ui/button";
 import type { DebtorsViewRow } from "@/lib/db/types";
 import { formatIls } from "@/lib/db/format";
-import { ChevronDown } from "lucide-react";
 import { markDeliveryPaid } from "@/app/dashboard/deliveries/actions";
 import { ErrorDialog } from "@/components/error-dialog";
+import { DebtorPrintDialog } from "@/components/debtors/debtor-print-dialog";
+
+type CustomerGroup = {
+  name: string;
+  phone: string | null;
+  email: string | null;
+  deliveries: DebtorsViewRow[];
+};
 
 export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const byCustomer = new Map<
-    string,
-    {
-      name: string;
-      phone: string | null;
-      email: string | null;
-      deliveries: DebtorsViewRow[];
-    }
-  >();
+  const [printCustomerId, setPrintCustomerId] = useState<string | null>(null);
+
+  const byCustomer = new Map<string, CustomerGroup>();
 
   for (const r of rows) {
     let g = byCustomer.get(r.customer_id);
@@ -40,6 +42,10 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
     }
     g.deliveries.push(r);
   }
+
+  const printGroup = printCustomerId
+    ? byCustomer.get(printCustomerId)
+    : undefined;
 
   return (
     <div className="flex flex-col gap-3 p-4 md:p-6">
@@ -56,21 +62,32 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
             defaultOpen
             className="group/collapsible rounded-lg border border-border bg-card"
           >
-            <CollapsibleTrigger className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-start hover:bg-muted/40">
-              <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-card-foreground">{g.name}</p>
-                <p className="text-muted-foreground text-xs tabular-nums">
-                  {g.phone ?? ""} {g.email ?? ""}
-                </p>
-              </div>
-              <div className="text-end text-sm">
-                <p className="font-medium tabular-nums">{formatIls(total)}</p>
-                <p className="text-muted-foreground text-xs">
-                  {g.deliveries.length} תעודות · יעד קרוב {nearestDue ?? "—"}
-                </p>
-              </div>
-            </CollapsibleTrigger>
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+              <CollapsibleTrigger className="flex min-w-0 flex-1 flex-wrap items-center gap-3 text-start hover:opacity-80">
+                <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-card-foreground">{g.name}</p>
+                  <p className="text-muted-foreground text-xs tabular-nums">
+                    {g.phone ?? ""} {g.email ?? ""}
+                  </p>
+                </div>
+                <div className="text-end text-sm">
+                  <p className="font-medium tabular-nums">{formatIls(total)}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {g.deliveries.length} תעודות · יעד קרוב {nearestDue ?? "—"}
+                  </p>
+                </div>
+              </CollapsibleTrigger>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setPrintCustomerId(cid)}
+              >
+                <Printer data-icon="inline-start" />
+                הדפסה
+              </Button>
+            </div>
             <CollapsibleContent>
               <ul className="flex flex-col gap-2 border-t border-border px-4 py-3">
                 {g.deliveries.map((d) => (
@@ -118,6 +135,15 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
           אין חובות פתוחים לפי תעודות משלוח.
         </p>
       ) : null}
+      <DebtorPrintDialog
+        open={printCustomerId !== null && !!printGroup}
+        onOpenChange={(open) => {
+          if (!open) setPrintCustomerId(null);
+        }}
+        customerName={printGroup?.name ?? ""}
+        deliveries={printGroup?.deliveries ?? []}
+        onError={setErrorMessage}
+      />
       <ErrorDialog
         message={errorMessage}
         onClose={() => setErrorMessage(null)}
