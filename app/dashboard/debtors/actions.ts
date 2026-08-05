@@ -2,15 +2,16 @@
 
 import { z } from "zod";
 
+import type {
+  DeliveryItemRow,
+  DeliveryViewRow,
+  InventoryPricingUnitDb,
+} from "@/lib/db/types";
 import { requireAuth } from "@/lib/supabase/auth-helpers";
 
-export type DebtorPrintDelivery = {
-  delivery_id: string;
-  delivery_number: number;
-  order_number: number;
-  subtotal: number;
-  vat_amount: number;
-  total: number;
+export type DebtorPrintDeliveryDoc = {
+  delivery: DeliveryViewRow;
+  lines: DeliveryItemRow[];
 };
 
 export type DebtorPrintData = {
@@ -18,7 +19,7 @@ export type DebtorPrintData = {
   customer_tax_id: string;
   customer_phone: string | null;
   customer_email: string | null;
-  deliveries: DebtorPrintDelivery[];
+  deliveryDocs: DebtorPrintDeliveryDoc[];
 };
 
 export type DebtorPrintResult =
@@ -40,9 +41,7 @@ export async function getDebtorPrintData(
 
   const { data: deliveries, error: deliveriesError } = await auth.supabase
     .from("deliveries_view")
-    .select(
-      "id, delivery_number, order_number, payment_status, subtotal, vat_amount, total, customer_id, customer_name, customer_tax_id, customer_phone, customer_email"
-    )
+    .select("*")
     .in("id", ids);
 
   if (deliveriesError) {
@@ -67,28 +66,48 @@ export async function getDebtorPrintData(
     return { ok: false, message: "ניתן להדפיס רק תעודות שלא שולמו" };
   }
 
-  const first = deliveries[0];
+  const { data: items, error: itemsError } = await auth.supabase
+    .from("delivery_items")
+    .select("*, inventory_items(pricing_unit)")
+    .in("delivery_id", ids);
+
+  if (itemsError) {
+    return { ok: false, message: itemsError.message };
+  }
+
+  const linesByDelivery = new Map<string, DeliveryItemRow[]>();
+  for (const row of items ?? []) {
+    const inv = row.inventory_items as {
+      pricing_unit: InventoryPricingUnitDb;
+    } | null;
+    const { inventory_items: _inv, ...rest } = row;
+    const line = {
+      ...rest,
+      inventory_pricing_unit: inv?.pricing_unit ?? "m3",
+    } as DeliveryItemRow;
+
+    const list = linesByDelivery.get(line.delivery_id) ?? [];
+    list.push(line);
+    linesByDelivery.set(line.delivery_id, list);
+  }
+
+  const sorted = [...(deliveries as DeliveryViewRow[])].sort(
+    (a, b) => a.delivery_number - b.delivery_number
+  );
+
+  const first = sorted[0];
 
   return {
     ok: true,
     data: {
-      customer_name: first.customer_name as string,
-      customer_tax_id: first.customer_tax_id as string,
-      customer_phone: (first.customer_phone as string | null) ?? null,
-      customer_email: (first.customer_email as string | null) ?? null,
-      deliveries: [...deliveries]
-        .sort(
-          (a, b) =>
-            (a.delivery_number as number) - (b.delivery_number as number)
-        )
-        .map((d) => ({
-          delivery_id: d.id as string,
-          delivery_number: d.delivery_number as number,
-          order_number: d.order_number as number,
-          subtotal: Number(d.subtotal),
-          vat_amount: Number(d.vat_amount),
-          total: Number(d.total),
-        })),
+      customer_name: first.customer_name,
+      customer_tax_id: first.customer_tax_id,
+      customer_phone: first.customer_phone,
+      customer_email: first.customer_email,
+      deliveryDocs: sorted.map((delivery) => ({
+        delivery,
+        lines: linesByDelivery.get(delivery.id) ?? [],
+      })),
     },
   };
 }

@@ -18,11 +18,12 @@ export const DebtorSummaryDocumentSheet = forwardRef<
   HTMLDivElement,
   { data: DebtorPrintData }
 >(function DebtorSummaryDocumentSheet({ data }, ref) {
-  const subtotal = data.deliveries.reduce((s, d) => s + d.subtotal, 0);
-  const vatAmount = data.deliveries.reduce((s, d) => s + d.vat_amount, 0);
-  const total = data.deliveries.reduce((s, d) => s + d.total, 0);
+  const deliveries = data.deliveryDocs.map((d) => d.delivery);
+  const subtotal = deliveries.reduce((s, d) => s + Number(d.subtotal), 0);
+  const vatAmount = deliveries.reduce((s, d) => s + Number(d.vat_amount), 0);
+  const total = deliveries.reduce((s, d) => s + Number(d.total), 0);
 
-  const deliveryRefs = data.deliveries
+  const deliveryRefs = deliveries
     .map((d) => `משלוח #${d.delivery_number} / הזמנה #${d.order_number}`)
     .join(" · ");
 
@@ -84,7 +85,7 @@ export const DebtorSummaryDocumentSheet = forwardRef<
           </div>
           <div className="ods-meta-card">
             <span className="ods-meta-label">מס׳ תעודות</span>
-            <span className="ods-meta-value">{data.deliveries.length}</span>
+            <span className="ods-meta-value">{deliveries.length}</span>
           </div>
           <div className="ods-meta-card">
             <span className="ods-meta-label">סטטוס תשלום</span>
@@ -102,9 +103,11 @@ export const DebtorSummaryDocumentSheet = forwardRef<
               </tr>
             </thead>
             <tbody>
-              {data.deliveries.map((d) => (
-                <tr key={d.delivery_id}>
-                  <td className="ods-num ods-strong">{formatIls(d.total)}</td>
+              {deliveries.map((d) => (
+                <tr key={d.id}>
+                  <td className="ods-num ods-strong">
+                    {formatIls(Number(d.total))}
+                  </td>
                   <td className="ods-num">#{d.order_number}</td>
                   <td className="ods-num">#{d.delivery_number}</td>
                 </tr>

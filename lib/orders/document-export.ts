@@ -144,13 +144,11 @@ async function captureSheetForExport(
   }
 }
 
-function createOrderDocumentPdf(canvas: HTMLCanvasElement): jsPDF {
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  addCanvasToPdf(canvas, pdf);
-  return pdf;
-}
-
-function addCanvasToPdf(canvas: HTMLCanvasElement, pdf: jsPDF): void {
+function addCanvasToPdf(
+  canvas: HTMLCanvasElement,
+  pdf: jsPDF,
+  options?: { forceNewPage?: boolean }
+): void {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 10;
@@ -198,14 +196,37 @@ function addCanvasToPdf(canvas: HTMLCanvasElement, pdf: jsPDF): void {
     const sliceHeightMm = (sliceHeightPx * imgWidth) / canvas.width;
     const imgData = sliceCanvas.toDataURL("image/jpeg", 0.92);
 
-    if (page > 0) pdf.addPage();
+    if (page > 0 || (page === 0 && options?.forceNewPage)) pdf.addPage();
     pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, sliceHeightMm);
   }
 }
 
-export async function printDocument(sheetEl: HTMLElement): Promise<void> {
-  const canvas = await captureSheetForExport(sheetEl);
-  const pdf = createOrderDocumentPdf(canvas);
+function createPdfFromCanvases(canvases: HTMLCanvasElement[]): jsPDF {
+  if (canvases.length === 0) {
+    throw new Error("אין מסמכים לייצוא");
+  }
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  canvases.forEach((canvas, index) => {
+    addCanvasToPdf(canvas, pdf, { forceNewPage: index > 0 });
+  });
+  return pdf;
+}
+
+function createOrderDocumentPdf(canvas: HTMLCanvasElement): jsPDF {
+  return createPdfFromCanvases([canvas]);
+}
+
+async function captureSheetsForExport(
+  sheetEls: HTMLElement[]
+): Promise<HTMLCanvasElement[]> {
+  const canvases: HTMLCanvasElement[] = [];
+  for (const sheetEl of sheetEls) {
+    canvases.push(await captureSheetForExport(sheetEl));
+  }
+  return canvases;
+}
+
+async function openPdfPrintDialog(pdf: jsPDF): Promise<void> {
   const url = URL.createObjectURL(pdf.output("blob"));
 
   const printFrame = document.createElement("iframe");
@@ -263,12 +284,34 @@ export async function printDocument(sheetEl: HTMLElement): Promise<void> {
   });
 }
 
+export async function printDocument(sheetEl: HTMLElement): Promise<void> {
+  const canvas = await captureSheetForExport(sheetEl);
+  const pdf = createOrderDocumentPdf(canvas);
+  await openPdfPrintDialog(pdf);
+}
+
+/** Capture multiple sheets into one PDF; each sheet starts on a new page. */
+export async function printDocuments(sheetEls: HTMLElement[]): Promise<void> {
+  const canvases = await captureSheetsForExport(sheetEls);
+  const pdf = createPdfFromCanvases(canvases);
+  await openPdfPrintDialog(pdf);
+}
+
 export async function downloadDocumentPdf(
   sheetEl: HTMLElement,
   filename: string
 ): Promise<void> {
   const canvas = await captureSheetForExport(sheetEl);
   const pdf = createOrderDocumentPdf(canvas);
+  pdf.save(filename);
+}
+
+export async function downloadDocumentsPdf(
+  sheetEls: HTMLElement[],
+  filename: string
+): Promise<void> {
+  const canvases = await captureSheetsForExport(sheetEls);
+  const pdf = createPdfFromCanvases(canvases);
   pdf.save(filename);
 }
 
@@ -297,9 +340,9 @@ export async function downloadQuoteDocumentPdf(
 }
 
 export async function downloadDebtorSummaryPdf(
-  sheetEl: HTMLElement,
+  sheetEls: HTMLElement[],
   customerName: string
 ): Promise<void> {
   const safeName = customerName.replace(/[\\/:*?"<>|]+/g, "-").trim() || "לקוח";
-  await downloadDocumentPdf(sheetEl, `סיכום-חוב-${safeName}.pdf`);
+  await downloadDocumentsPdf(sheetEls, `סיכום-חוב-${safeName}.pdf`);
 }

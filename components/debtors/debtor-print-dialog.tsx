@@ -8,6 +8,7 @@ import {
   type DebtorPrintData,
 } from "@/app/dashboard/debtors/actions";
 import { DebtorSummaryDocumentSheet } from "@/components/debtors/debtor-summary-document-sheet";
+import { DeliveryDocumentSheet } from "@/components/deliveries/delivery-document-sheet";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -22,7 +23,7 @@ import type { DebtorsViewRow } from "@/lib/db/types";
 import { formatIls } from "@/lib/db/format";
 import {
   downloadDebtorSummaryPdf,
-  printDocument,
+  printDocuments,
 } from "@/lib/orders/document-export";
 
 type ExportMode = "print" | "download";
@@ -45,7 +46,7 @@ export function DebtorPrintDialog({
   );
   const [busyMode, setBusyMode] = useState<ExportMode | null>(null);
   const [printData, setPrintData] = useState<DebtorPrintData | null>(null);
-  const sheetRef = useRef<HTMLDivElement>(null);
+  const bundleRef = useRef<HTMLDivElement>(null);
   const pendingModeRef = useRef<ExportMode | null>(null);
 
   useEffect(() => {
@@ -64,8 +65,12 @@ export function DebtorPrintDialog({
     let cancelled = false;
 
     async function runExport() {
-      const el = sheetRef.current;
-      if (!el) {
+      const root = bundleRef.current;
+      const sheets = root
+        ? ([...root.querySelectorAll(".ods-sheet")] as HTMLElement[])
+        : [];
+
+      if (sheets.length === 0) {
         pendingModeRef.current = null;
         setBusyMode(null);
         setPrintData(null);
@@ -75,9 +80,9 @@ export function DebtorPrintDialog({
 
       try {
         if (mode === "print") {
-          await printDocument(el);
+          await printDocuments(sheets);
         } else {
-          await downloadDebtorSummaryPdf(el, customerName);
+          await downloadDebtorSummaryPdf(sheets, customerName);
         }
         if (!cancelled) onOpenChange(false);
       } catch {
@@ -164,7 +169,8 @@ export function DebtorPrintDialog({
           <DialogHeader>
             <DialogTitle>סיכום חוב</DialogTitle>
             <DialogDescription>
-              בחרו אילו תעודות משלוח לכלול במסמך הסיכום עבור {customerName}.
+              בחרו אילו תעודות משלוח לכלול במסמך הסיכום עבור {customerName}. לכל
+              תעודה שנבחרה יצורף גם עמוד תעודת משלוח מלאה.
             </DialogDescription>
           </DialogHeader>
 
@@ -249,10 +255,18 @@ export function DebtorPrintDialog({
 
       {printData ? (
         <div
+          ref={bundleRef}
           aria-hidden
-          className="pointer-events-none fixed -left-[10000px] top-0 z-[-1] overflow-visible"
+          className="pointer-events-none fixed -left-[10000px] top-0 z-[-1] flex w-[210mm] flex-col gap-0 overflow-visible"
         >
-          <DebtorSummaryDocumentSheet ref={sheetRef} data={printData} />
+          <DebtorSummaryDocumentSheet data={printData} />
+          {printData.deliveryDocs.map(({ delivery, lines }) => (
+            <DeliveryDocumentSheet
+              key={delivery.id}
+              delivery={delivery}
+              lines={lines}
+            />
+          ))}
         </div>
       ) : null}
     </>
