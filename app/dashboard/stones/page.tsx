@@ -2,20 +2,18 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
+import { toHebrewError } from "@/lib/db/errors";
 
 export default async function StonesPage() {
   const supabase = await createClient();
 
-  const { data: stones, error } = await supabase
-    .from("stones")
-    .select("*")
-    .eq("is_active", true)
-    .order("name");
-
-  const { data: invRows } = await supabase
-    .from("inventory_items_view")
-    .select("stone_id")
-    .gt("quantity_available", 0);
+  const [{ data: stones, error }, { data: invRows }] = await Promise.all([
+    supabase.from("stones").select("*").eq("is_active", true).order("name"),
+    supabase
+      .from("inventory_items_view")
+      .select("stone_id")
+      .gt("quantity_available", 0),
+  ]);
 
   const availStoneIds = new Set(
     (invRows ?? []).map((r) => r.stone_id as string)
@@ -24,7 +22,7 @@ export default async function StonesPage() {
   if (error) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-6">
-        <p className="text-destructive text-sm">{error.message}</p>
+        <p className="text-destructive text-sm">{toHebrewError(error, "טעינת הנתונים נכשלה. נסו לרענן את הדף.")}</p>
       </div>
     );
   }

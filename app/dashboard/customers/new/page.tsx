@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -23,10 +26,11 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-sm font-medium text-foreground">{label}</label>
+    // <label> עוטף את השדה — שם נגיש לקורא מסך ולחיצה על הכותרת מפעילה את השדה
+    <label className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -40,14 +44,14 @@ export default function NewCustomerPage() {
     setPending(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
-    const res = await createCustomer(fd);
-    setPending(false);
+    const res = await createCustomer(fd).catch(actionCrashed);
     if (!res.ok) {
+      setPending(false);
       setError(res.message);
       return;
     }
+    toast.success("הלקוח נוסף");
     router.push("/dashboard/customers");
-    router.refresh();
   }
 
   return (

@@ -1,7 +1,11 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +14,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
 
 import type { OrderViewRow } from "@/lib/db/types";
-import { formatIls } from "@/lib/db/format";
+import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
+import { cn } from "@/lib/utils";
 import { createDeliveryFromOrder } from "@/app/dashboard/deliveries/actions";
 import { deleteOrder } from "./actions";
 
@@ -46,18 +51,36 @@ export const ordersColumnLabels: Record<string, string> = {
 };
 
 function OrderActions({ order }: { order: OrderViewRow }) {
+  const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deliveryConfirmOpen, setDeliveryConfirmOpen] = useState(false);
 
   const deleteDescription = order.has_delivery
-    ? "למחוק את ההזמנה ואת תעודת המשלוח? כמויות יוחזרו מהנגרע במלאי."
-    : "למחוק את ההזמנה? משוחרר מלאי מזומן.";
+    ? "למחוק את ההזמנה ואת תעודת המשלוח שלה? הכמויות יחזרו למלאי. פעולה זו לא ניתנת לביטול."
+    : "למחוק את ההזמנה? המלאי שהוזמן ישוחרר. פעולה זו לא ניתנת לביטול.";
 
   async function handleDelete() {
-    const res = await deleteOrder(order.id);
-    if (!res.ok) setErrorMessage(res.message);
-    else window.location.reload();
+    const res = await deleteOrder(order.id).catch(actionCrashed);
+    if (!res.ok) {
+      setErrorMessage(res.message);
+      return;
+    }
+    toast.success(`הזמנה #${order.order_number} נמחקה`);
+    router.refresh();
   }
+
+  async function handleCreateDelivery() {
+    const res = await createDeliveryFromOrder(order.id).catch(actionCrashed);
+    if (!res.ok) {
+      setErrorMessage(res.message);
+      return;
+    }
+    toast.success("תעודת המשלוח נוצרה");
+    router.push(`/dashboard/deliveries/${res.id}`);
+  }
+
+  const cannotDeliver = order.has_delivery || order.status === "cancelled";
 
   return (
     <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
@@ -65,13 +88,15 @@ function OrderActions({ order }: { order: OrderViewRow }) {
         variant="outline"
         size="sm"
         type="button"
-        disabled={order.has_delivery}
-        title={order.has_delivery ? "כבר קיימת תעודת משלוח" : "צור תעודת משלוח"}
-        onClick={async () => {
-          const res = await createDeliveryFromOrder(order.id);
-          if (!res.ok) setErrorMessage(res.message);
-          else window.location.href = `/dashboard/deliveries/${res.id}`;
-        }}
+        disabled={cannotDeliver}
+        title={
+          order.has_delivery
+            ? "כבר קיימת תעודת משלוח"
+            : order.status === "cancelled"
+              ? "ההזמנה בוטלה"
+              : "צור תעודת משלוח"
+        }
+        onClick={() => setDeliveryConfirmOpen(true)}
       >
         צור תעודת משלוח
       </Button>
@@ -84,13 +109,23 @@ function OrderActions({ order }: { order: OrderViewRow }) {
         מחיקה
       </Button>
       <ConfirmDialog
+        open={deliveryConfirmOpen}
+        onOpenChange={setDeliveryConfirmOpen}
+        title={`תעודת משלוח להזמנה #${order.order_number}`}
+        description="ליצור תעודת משלוח? הכמויות יועברו מ״מוזמן״ ל״סופק״ במלאי וכל פריטי ההזמנה יסומנו כהושלמו."
+        confirmLabel="יצירת תעודה"
+        pendingLabel="יוצר…"
+        onConfirm={handleCreateDelivery}
+      />
+      <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        title="מחיקת הזמנה"
+        title={`מחיקת הזמנה #${order.order_number}`}
         description={deleteDescription}
         confirmLabel="מחיקה"
+        pendingLabel="מוחק…"
         confirmVariant="destructive"
-        onConfirm={() => void handleDelete()}
+        onConfirm={handleDelete}
       />
       <ErrorDialog
         message={errorMessage}
@@ -130,7 +165,18 @@ export const ordersColumns: ColumnDef<OrderViewRow>[] = [
     accessorKey: "supply_due_date",
     header: "יעד אספקה",
     cell: ({ row }) =>
-      row.original.supply_due_date ?? (
+      row.original.supply_due_date ? (
+        <span
+          className={cn(
+            "tabular-nums",
+            row.original.status !== "completed" && row.original.status !== "cancelled" &&
+              isPastDue(row.original.supply_due_date) &&
+              "font-medium text-destructive"
+          )}
+        >
+          {formatDateShort(row.original.supply_due_date)}
+        </span>
+      ) : (
         <span className="text-muted-foreground">—</span>
       ),
   },

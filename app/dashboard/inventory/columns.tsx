@@ -1,6 +1,10 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
@@ -53,13 +57,18 @@ export const inventoryColumnLabels: Record<string, string> = {
 };
 
 function InventoryActions({ id }: { id: string }) {
+  const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function handleDelete() {
-    const res = await deleteInventoryItem(id);
-    if (!res.ok) setErrorMessage(res.message);
-    else window.location.reload();
+    const res = await deleteInventoryItem(id).catch(actionCrashed);
+    if (!res.ok) {
+      setErrorMessage(res.message);
+      return;
+    }
+    toast.success("פריט המלאי הוסר");
+    router.refresh();
   }
 
   return (
@@ -76,10 +85,11 @@ function InventoryActions({ id }: { id: string }) {
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="מחיקת פריט מלאי"
-        description="למחוק או להפוך למלאי לא זמין?"
+        description="פריט שלא שויך לאף הזמנה יימחק. פריט שכבר שויך להזמנה יסומן כ״לא זמין״ במקום."
         confirmLabel="מחיקה"
         confirmVariant="destructive"
-        onConfirm={() => void handleDelete()}
+        onConfirm={handleDelete}
+        pendingLabel="מוחק…"
       />
       <ErrorDialog
         message={errorMessage}

@@ -16,20 +16,17 @@ export default async function DeliveryDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: delivery, error } = await supabase
-    .from("deliveries_view")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const [{ data: delivery, error }, { data: items }] = await Promise.all([
+    supabase.from("deliveries_view").select("*").eq("id", id).single(),
+    supabase
+      .from("delivery_items")
+      .select("*, inventory_items(pricing_unit)")
+      .eq("delivery_id", id),
+  ]);
 
   if (error || !delivery) notFound();
 
   const d = delivery as DeliveryViewRow;
-
-  const { data: items } = await supabase
-    .from("delivery_items")
-    .select("*, inventory_items(pricing_unit)")
-    .eq("delivery_id", id);
 
   const lines = (items ?? []).map((row) => {
     const inv = row.inventory_items as { pricing_unit: InventoryPricingUnitDb } | null;

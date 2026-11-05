@@ -138,3 +138,87 @@ html {
 /* scrollbar-width: thin; */
 /* scrollbar-color: gray transparent; */
 }
+/* -----------------------------------------------------------------------------
+   Motion — עקרונות: מהיר (150–250ms), ease-out חזק לכניסה, רק transform/opacity,
+   ובלי אנימציה למי שביקש reduced motion. לא משנה את המראה — רק את התחושה.
+   ----------------------------------------------------------------------------- */
+:root {
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@theme inline {
+  --ease-out-strong: var(--ease-out-strong);
+  --ease-in-out-strong: var(--ease-in-out-strong);
+}
+
+/* פתיחה/סגירה חלקה של Collapsible (קבוצות בדאשבורד, פריטי הזמנה, חייבים) */
+[data-slot="collapsible-content"] {
+  overflow: hidden;
+}
+[data-slot="collapsible-content"][data-state="open"] {
+  animation: crm-collapsible-down 220ms var(--ease-out-strong);
+}
+[data-slot="collapsible-content"][data-state="closed"] {
+  animation: crm-collapsible-up 160ms var(--ease-out-strong);
+}
+@keyframes crm-collapsible-down {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+@keyframes crm-collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+/* כניסה עדינה לתוכן חדש (הודעות שגיאה, מצבים ריקים) */
+.crm-enter {
+  animation: crm-enter 220ms var(--ease-out-strong) both;
+}
+@keyframes crm-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* שלד טעינה מופיע רק אם הטעינה לוקחת יותר מ-150ms — בלי הבהוב בניווט מהיר */
+.crm-delayed-fade {
+  animation: crm-fade-in 200ms ease-out 150ms both;
+}
+@keyframes crm-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

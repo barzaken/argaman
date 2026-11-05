@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -172,10 +175,11 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-sm font-medium text-foreground">{label}</label>
+    // <label> עוטף את השדה — שם נגיש לקורא מסך ולחיצה על הכותרת מפעילה את השדה
+    <label className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -231,24 +235,24 @@ export function StoneEditForm({
     fd.set("id", stone.id);
     fd.set("name", stoneName);
     fd.set("color_hex", normalizeHex(colorHex));
-    const res = await updateStone(fd);
-    setPending(false);
+    const res = await updateStone(fd).catch(actionCrashed);
     if (!res.ok) {
+      setPending(false);
       setError(res.message);
       return;
     }
+    toast.success("האבן עודכנה");
     router.push("/dashboard/stones");
-    router.refresh();
   }
 
   async function handleArchive() {
-    const res = await archiveStone(stone.id);
+    const res = await archiveStone(stone.id).catch(actionCrashed);
     if (!res.ok) {
-      setError(res.message);
-      return;
+      toast.error(res.message);
+      return false;
     }
+    toast.success("האבן הועברה לארכיון");
     router.push("/dashboard/stones");
-    router.refresh();
   }
 
   return (
@@ -311,7 +315,8 @@ export function StoneEditForm({
             description="להפסיק להציג את האבן בקטלוג?"
             confirmLabel="ארכיון"
             confirmVariant="destructive"
-            onConfirm={() => void handleArchive()}
+            onConfirm={handleArchive}
+            pendingLabel="מעביר…"
           />
           <div className="flex flex-wrap gap-2">
             <Button

@@ -1,7 +1,12 @@
 "use client";
 
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { createOrder } from "../actions";
 import {
@@ -28,12 +33,13 @@ import type {
   StoneRow,
 } from "@/lib/db/types";
 import {
-  computeLineSubtotal,
   computeVolumeM3FromCm,
   metersToCmInput,
   pricePerM3ExVatFromInclusive,
   computeTotalWithVat,
   computeVatAmount,
+  normalizeDecimalInput,
+  roundMoney,
 } from "@/lib/db/calculations";
 import {
   formatInventoryShipmentSelectLabel,
@@ -91,11 +97,11 @@ function newEmptyLine(
 
 function parseLineNumbers(ln: Line) {
   return {
-    L: parseFloat(ln.length_cm.replace(",", ".")) || 0,
-    W: parseFloat(ln.width_cm.replace(",", ".")) || 0,
-    H: parseFloat(ln.height_cm.replace(",", ".")) || 0,
-    Q: parseInt(ln.quantity.replace(",", "."), 10),
-    p: parseFloat(ln.price_per_m3.replace(",", ".")),
+    L: parseFloat(normalizeDecimalInput(ln.length_cm)) || 0,
+    W: parseFloat(normalizeDecimalInput(ln.width_cm)) || 0,
+    H: parseFloat(normalizeDecimalInput(ln.height_cm)) || 0,
+    Q: Number(normalizeDecimalInput(ln.quantity)),
+    p: parseFloat(normalizeDecimalInput(ln.price_per_m3)),
   };
 }
 
@@ -224,15 +230,23 @@ function linePreview(ln: Line, vatIncluded: boolean) {
           quantity: Q,
         })
       : null;
+  // מחשבים בדיוק כמו ה-DB: מחיר numeric(12,2), מידות numeric(10,3) במטרים,
+  // line_subtotal = ROUND(L*W*H*Q*price, 2) — כדי שהתצוגה המקדימה תתאים לסכום שיישמר.
   const priceEx =
     vol != null && p
-      ? vatIncluded
-        ? pricePerM3ExVatFromInclusive(p, VAT_RATE)
-        : p
+      ? roundMoney(
+          vatIncluded ? pricePerM3ExVatFromInclusive(p, VAT_RATE) : p
+        )
       : null;
   const lineSub =
     vol != null && priceEx != null
-      ? computeLineSubtotal(vol, priceEx)
+      ? roundMoney(
+          (Math.round(L * 10) / 1000) *
+            (Math.round(W * 10) / 1000) *
+            (Math.round(H * 10) / 1000) *
+            Q *
+            priceEx
+        )
       : null;
   return { vol, lineSub };
 }
@@ -247,10 +261,11 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-sm font-medium text-foreground">{label}</label>
+    // <label> עוטף את השדה — שם נגיש לקורא מסך ולחיצה על הכותרת מפעילה את השדה
+    <label className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -268,7 +283,6 @@ export function OrderForm({
   initialInventoryIds?: string[];
 }) {
   const router = useRouter();
-  const seededRef = useRef(false);
   const [customerId, setCustomerId] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "urgent">(
     "medium"
@@ -276,24 +290,44 @@ export function OrderForm({
   const [supplyDue, setSupplyDue] = useState("");
   const [signatureUrl, setSignatureUrl] = useState("");
   const [vatIncluded, setVatIncluded] = useState(false);
-  const [lines, setLines] = useState<Line[]>([newEmptyLine()]);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  const stoneGroups = useMemo(() => groupLinesByStone(lines), [lines]);
-
-  useEffect(() => {
-    if (seededRef.current || initialInventoryIds.length === 0) return;
-    seededRef.current = true;
+  // זריעה מראש משורות מלאי שנבחרו (?inventory=...) — בלי effect, בלי הבהוב
+  const [lines, setLines] = useState<Line[]>(() => {
     const seeded = initialInventoryIds
       .map((id) => inventory.find((i) => i.id === id))
       .filter((inv): inv is InventoryItemViewRow => inv != null)
-      .map((inv) =>
-        buildLineFromInventory(inv, customerId, inventory, overrides)
-      );
-    if (seeded.length > 0) setLines(seeded);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional single-run seed
-  }, [initialInventoryIds, inventory, overrides]);
+      .map((inv) => buildLineFromInventory(inv, "", inventory, overrides));
+    return seeded.length > 0 ? seeded : [newEmptyLine()];
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  useUnsavedChangesWarning(!pending && (!!customerId || lines.some(isLineTouched)));
+
+  const stoneGroups = useMemo(() => groupLinesByStone(lines), [lines]);
+
+
+  /**
+   * מחירי מלאי ומחירים מיוחדים שמורים לפני מע״מ. כשהמשתמש סימן "כולל מע״מ"
+   * מציגים אותם כשהם כוללים מע״מ — אחרת השרת יחלק שוב ב-1.18 והמחיר יירד.
+   */
+  function shownPrice(exVat: number): string {
+    return String(
+      vatIncluded ? roundMoney(exVat * (1 + VAT_RATE)) : roundMoney(exVat)
+    );
+  }
+
+  function handleVatIncludedChange(next: boolean) {
+    if (next === vatIncluded) return;
+    const factor = 1 + VAT_RATE;
+    setVatIncluded(next);
+    setLines((prev) =>
+      prev.map((ln) => {
+        const p = parseFloat(normalizeDecimalInput(ln.price_per_m3));
+        if (!ln.price_per_m3.trim() || Number.isNaN(p)) return ln;
+        const converted = next ? p * factor : p / factor;
+        return { ...ln, price_per_m3: String(roundMoney(converted)) };
+      })
+    );
+  }
 
   function linePrice(invId: string, forCustomerId: string): number | null {
     return effectiveLinePricePerM3(
@@ -315,7 +349,7 @@ export function OrderForm({
               o.customer_id === nextCustomerId && o.stone_id === ln.stone_id
           );
           if (ov?.price_per_m3 != null) {
-            return { ...ln, price_per_m3: String(ov.price_per_m3) };
+            return { ...ln, price_per_m3: shownPrice(Number(ov.price_per_m3)) };
           }
           return ln;
         }
@@ -328,7 +362,7 @@ export function OrderForm({
           ln.inventory_item_id;
         const dp = linePrice(firstInv, nextCustomerId);
         if (dp == null || Number.isNaN(dp)) return ln;
-        return { ...ln, price_per_m3: String(dp) };
+        return { ...ln, price_per_m3: shownPrice(dp) };
       });
     });
   }
@@ -397,7 +431,7 @@ export function OrderForm({
             if (!groupHasPrice && !ln.price_per_m3.trim()) {
               const dp = linePrice(invRow.id, customerId);
               if (dp != null && !Number.isNaN(dp)) {
-                next.price_per_m3 = String(dp);
+                next.price_per_m3 = shownPrice(dp);
               }
             }
           }
@@ -422,7 +456,7 @@ export function OrderForm({
           if (dp == null || Number.isNaN(dp)) return prev;
           const keySet = new Set(group.lines.map((x) => x.key));
           return prev.map((ln) =>
-            keySet.has(ln.key) ? { ...ln, price_per_m3: String(dp) } : ln
+            keySet.has(ln.key) ? { ...ln, price_per_m3: shownPrice(dp) } : ln
           );
         });
       }
@@ -456,9 +490,14 @@ export function OrderForm({
             next.piece_type = inv.piece_type;
           }
         }
+        // מחיר האבן הקודמת לא רלוונטי לאבן החדשה
         if (ov != null && !Number.isNaN(ov)) {
-          next.price_per_m3 = String(ov);
-        } else if (!ln.price_per_m3.trim()) {
+          next.price_per_m3 = shownPrice(ov);
+        } else if (next.inventory_item_id) {
+          const dp = linePrice(next.inventory_item_id, customerId);
+          next.price_per_m3 =
+            dp != null && !Number.isNaN(dp) ? shownPrice(dp) : "";
+        } else {
           next.price_per_m3 = "";
         }
         return next;
@@ -552,15 +591,14 @@ export function OrderForm({
       vat_rate: VAT_RATE,
       vat_included: vatIncluded,
       items,
-    });
-
-    setPending(false);
+    }).catch(actionCrashed);
     if (!res.ok) {
+      setPending(false);
       setError(res.message);
       return;
     }
+    toast.success("ההזמנה נוצרה");
     router.push(`/dashboard/orders/${res.id}`);
-    router.refresh();
   }
 
   return (
@@ -641,7 +679,7 @@ export function OrderForm({
               <input
                 type="checkbox"
                 checked={vatIncluded}
-                onChange={(e) => setVatIncluded(e.target.checked)}
+                onChange={(e) => handleVatIncludedChange(e.target.checked)}
               />
               מחיר לקו״ב כולל מע״מ (יומר לנטו לפני שמירה)
             </label>

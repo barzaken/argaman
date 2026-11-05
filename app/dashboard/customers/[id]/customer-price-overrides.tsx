@@ -1,6 +1,10 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useRouter } from "next/navigation";
+import { normalizeDecimalInput } from "@/lib/db/calculations";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
@@ -17,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
 import type { CustomerStonePriceRow } from "@/lib/db/types";
 import type { StoneRow } from "@/lib/db/types";
@@ -43,6 +48,23 @@ export function CustomerPriceOverrides({
   const [error, setError] = useState<string | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<
+    (typeof overrides)[number] | null
+  >(null);
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    const res = await deleteCustomerStonePrice(
+      customerId,
+      deleteTarget.id
+    ).catch(actionCrashed);
+    if (!res.ok) {
+      setDialogError(res.message);
+      return;
+    }
+    toast.success("המחיר המיוחד הוסר");
+    router.refresh();
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -52,13 +74,15 @@ export function CustomerPriceOverrides({
     const fd = new FormData();
     fd.set("customer_id", customerId);
     fd.set("stone_id", stoneId);
-    fd.set("price_per_m3", pricePerM3.replace(",", "."));
-    const res = await upsertCustomerStonePrice(fd);
-    setPending(false);
+    fd.set("price_per_m3", normalizeDecimalInput(pricePerM3));
+    const res = await upsertCustomerStonePrice(fd).catch(actionCrashed);
     if (!res.ok) {
+      setPending(false);
       setError(res.message);
       return;
     }
+    setPending(false);
+    toast.success("המחיר המיוחד נשמר");
     setStoneId("");
     setPricePerM3("");
     router.refresh();
@@ -95,14 +119,8 @@ export function CustomerPriceOverrides({
                     size="icon"
                     className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
                     title="הסרה"
-                    onClick={async () => {
-                      const res = await deleteCustomerStonePrice(
-                        customerId,
-                        o.id
-                      );
-                      if (!res.ok) setDialogError(res.message);
-                      else router.refresh();
-                    }}
+                    aria-label={`הסרת המחיר המיוחד של ${o.label}`}
+                    onClick={() => setDeleteTarget(o)}
                   >
                     <Trash2 className="size-4" />
                     <span className="sr-only">הסרת מחיר</span>
@@ -162,8 +180,8 @@ export function CustomerPriceOverrides({
               pending ||
               !stoneId ||
               !pricePerM3.trim() ||
-              Number.isNaN(parseFloat(pricePerM3.replace(",", "."))) ||
-              parseFloat(pricePerM3.replace(",", ".")) <= 0
+              Number.isNaN(parseFloat(normalizeDecimalInput(pricePerM3))) ||
+              parseFloat(normalizeDecimalInput(pricePerM3)) <= 0
             }
           >
             {pending ? "שומר…" : "שמירת מחיר"}
@@ -171,6 +189,22 @@ export function CustomerPriceOverrides({
         </form>
       </div>
 
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="הסרת מחיר מיוחד"
+        description={
+          deleteTarget
+            ? `להסיר את המחיר המיוחד ל״${deleteTarget.label}״? הלקוח יחזור למחיר הרגיל במלאי.`
+            : ""
+        }
+        confirmLabel="הסרה"
+        pendingLabel="מסיר…"
+        confirmVariant="destructive"
+        onConfirm={handleDelete}
+      />
       <ErrorDialog
         message={dialogError}
         onClose={() => setDialogError(null)}

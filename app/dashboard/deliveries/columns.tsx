@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import type { DeliveryViewRow } from "@/lib/db/types";
-import { formatIls } from "@/lib/db/format";
+import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
+import { cn } from "@/lib/utils";
 
 const payLabels: Record<DeliveryViewRow["payment_status"], string> = {
   unpaid: "לא שולם",
@@ -19,6 +20,14 @@ const deliveryStatusLabels: Record<DeliveryViewRow["status"], string> = {
   in_transit: "בדרך",
   delivered: "נמסר",
   cancelled: "בוטל",
+};
+
+const paymentMethodLabels: Record<string, string> = {
+  cash: "מזומן",
+  bank_transfer: "העברה בנקאית",
+  check: "צ׳ק",
+  credit_card: "כרטיס אשראי",
+  other: "אחר",
 };
 
 export const deliveriesColumnLabels: Record<string, string> = {
@@ -77,15 +86,22 @@ export const deliveriesColumns: ColumnDef<DeliveryViewRow>[] = [
     accessorKey: "delivered_at",
     header: "מסירה",
     cell: ({ row }) =>
-      row.original.delivered_at ?? (
+      row.original.delivered_at ? (
+        <span className="tabular-nums">
+          {formatDateShort(row.original.delivered_at)}
+        </span>
+      ) : (
         <span className="text-muted-foreground">—</span>
       ),
   },
   {
     accessorKey: "payment_method",
-    header: "מזומן",
+    header: "אמצעי תשלום",
     cell: ({ row }) =>
-      row.original.payment_method ?? (
+      row.original.payment_method ? (
+        paymentMethodLabels[row.original.payment_method] ??
+        row.original.payment_method
+      ) : (
         <span className="text-muted-foreground">—</span>
       ),
   },
@@ -93,7 +109,18 @@ export const deliveriesColumns: ColumnDef<DeliveryViewRow>[] = [
     accessorKey: "payment_due_date",
     header: "יעד תשלום",
     cell: ({ row }) =>
-      row.original.payment_due_date ?? (
+      row.original.payment_due_date ? (
+        <span
+          className={cn(
+            "tabular-nums",
+            row.original.payment_status === "unpaid" &&
+              isPastDue(row.original.payment_due_date) &&
+              "font-medium text-destructive"
+          )}
+        >
+          {formatDateShort(row.original.payment_due_date)}
+        </span>
+      ) : (
         <span className="text-muted-foreground">—</span>
       ),
   },

@@ -173,3 +173,39 @@ export function pricePerM3ExVatFromInclusive(
   const factor = 1 + vatRate;
   return Math.round((priceInclusive / factor) * 10000) / 10000;
 }
+
+/**
+ * מנרמל קלט מספרי מהמשתמש למחרוזת שמתאימה ל-parseFloat/Number:
+ * - "4,200" / "12,345.5" (מפריד אלפים) → "4200" / "12345.5"
+ * - "1,5" (פסיק עשרוני) → "1.5"
+ * - קלט לא חוקי ("12abc", "1.2.3") → "NaN" כדי שהוולידציה תיכשל ולא תנחש מספר.
+ */
+export function normalizeDecimalInput(raw: string): string {
+  const s = raw.trim().replace(/\s+/g, "");
+  if (s === "") return "";
+  let out: string;
+  if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) {
+    out = s.replace(/,/g, "");
+  } else if (/^\d*,\d+$/.test(s)) {
+    out = s.replace(",", ".");
+  } else {
+    out = s;
+  }
+  return /^(\d+(\.\d*)?|\.\d+)$/.test(out) ? out : "NaN";
+}
+
+/**
+ * המרת מחיר בין "לקו״ב" ל"למ״ר" לפי עובי (ס״מ), כשמשתמש מחליף יחידת תמחור.
+ * מחזיר את הקלט כמו שהוא אם אין עובי / מחיר תקין.
+ */
+export function convertUnitPriceInput(
+  value: string,
+  to: "m3" | "m2",
+  heightCm: number
+): string {
+  const p = parseFloat(normalizeDecimalInput(value));
+  const heightM = heightCm / 100;
+  if (!value.trim() || Number.isNaN(p) || !(heightM > 0)) return value;
+  const converted = to === "m2" ? p * heightM : p / heightM;
+  return String(Math.round(converted * 100) / 100);
+}

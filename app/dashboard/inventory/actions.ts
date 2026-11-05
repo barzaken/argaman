@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { toHebrewError } from "@/lib/db/errors";
+import { optionalDateSchema } from "@/lib/db/validation";
+
 import { derivePricePerM3FromM2 } from "@/lib/db/calculations";
 import { requireAuth } from "@/lib/supabase/auth-helpers";
 
@@ -23,7 +26,7 @@ const inventoryBaseSchema = z.object({
   status: z.enum(["available", "unavailable", "in_transit"]),
   finish_level: z.enum(["halak", "tuboza", "masmesm"]),
   piece_type: z.enum(["panel", "frame", "plate", "standing_stone"]),
-  expected_arrival_date: z.string().optional().nullable(),
+  expected_arrival_date: optionalDateSchema,
 });
 
 type InventoryFormParsed = z.infer<typeof inventoryBaseSchema>;
@@ -99,7 +102,7 @@ export async function createInventoryItem(
   formData: FormData
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = parseInventoryFormData(formData);
 
@@ -148,7 +151,7 @@ export async function createInventoryItem(
     .from("inventory_items")
     .insert(insertPayload);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/new");
@@ -164,7 +167,7 @@ export async function updateInventoryItem(
   formData: FormData
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const status = formData.get("status") as string;
   const expectedRaw = formData.get("expected_arrival_date");
@@ -221,7 +224,7 @@ export async function updateInventoryItem(
     .single();
 
   if (fetchErr || !existing) {
-    return { ok: false, message: fetchErr?.message ?? "לא נמצא מלאי" };
+    return { ok: false, message: toHebrewError(fetchErr, "לא נמצא מלאי") };
   }
 
   if (existing.stone_id !== parsed.data.stone_id) {
@@ -259,7 +262,7 @@ export async function updateInventoryItem(
     })
     .eq("id", parsed.data.id);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/inventory");
   revalidatePath(`/dashboard/inventory/${parsed.data.id}/edit`);
@@ -269,7 +272,7 @@ export async function updateInventoryItem(
 
 export async function deleteInventoryItem(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -279,13 +282,13 @@ export async function deleteInventoryItem(id: string): Promise<ActionResult> {
     .select("*", { count: "exact", head: true })
     .eq("inventory_item_id", parsed.data);
 
-  if (cntErr) return { ok: false, message: cntErr.message };
+  if (cntErr) return { ok: false, message: toHebrewError(cntErr) };
   if ((count ?? 0) > 0) {
     const { error } = await auth.supabase
       .from("inventory_items")
       .update({ status: "unavailable" })
       .eq("id", parsed.data);
-    if (error) return { ok: false, message: error.message };
+    if (error) return { ok: false, message: toHebrewError(error) };
     revalidatePath("/dashboard/inventory");
     return { ok: true };
   }
@@ -295,7 +298,7 @@ export async function deleteInventoryItem(id: string): Promise<ActionResult> {
     .delete()
     .eq("id", parsed.data);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/inventory");
   return { ok: true };

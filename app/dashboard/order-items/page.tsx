@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { OrderItemsExplorer } from "./order-items-explorer";
 import { createClient } from "@/lib/supabase/server";
+import { toHebrewError } from "@/lib/db/errors";
 import type { OrderItemViewRow } from "@/lib/db/types";
 
 export default async function OrderItemsPage({
@@ -29,7 +30,7 @@ export default async function OrderItemsPage({
   if (error) {
     return (
       <div className="p-6">
-        <p className="text-destructive text-sm">{error.message}</p>
+        <p className="text-destructive text-sm">{toHebrewError(error, "טעינת הנתונים נכשלה. נסו לרענן את הדף.")}</p>
       </div>
     );
   }

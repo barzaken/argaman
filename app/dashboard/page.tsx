@@ -13,34 +13,28 @@ import type {
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const { data: kpiRow } = await supabase
-    .from("dashboard_kpis_view")
-    .select("*")
-    .single();
+  const [{ data: kpiRow }, { data: catalogStones }, { data: invRows }, { data: todoItems }] =
+    await Promise.all([
+      supabase.from("dashboard_kpis_view").select("*").single(),
+      supabase.from("stones").select("*").eq("is_active", true).order("name"),
+      supabase
+        .from("inventory_items_view")
+        .select("stone_id")
+        .gt("quantity_available", 0),
+      supabase
+        .from("order_items_view")
+        .select("*")
+        .not("status", "in", "(completed,cancelled)")
+        .neq("order_status", "cancelled")
+        .order("created_at", { ascending: false })
+        .limit(40),
+    ]);
 
   const kpi = kpiRow as DashboardKpisRow | null;
-
-  const { data: catalogStones } = await supabase
-    .from("stones")
-    .select("*")
-    .eq("is_active", true)
-    .order("name");
-
-  const { data: invRows } = await supabase
-    .from("inventory_items_view")
-    .select("stone_id")
-    .gt("quantity_available", 0);
 
   const availStoneIds = new Set(
     (invRows ?? []).map((r) => r.stone_id as string)
   );
-
-  const { data: todoItems } = await supabase
-    .from("order_items_view")
-    .select("*")
-    .neq("status", "completed")
-    .order("created_at", { ascending: false })
-    .limit(40);
 
   const openOrdersCount = Number(kpi?.open_orders_count ?? 0);
   const unpaidDeliveriesCount = Number(kpi?.unpaid_deliveries_count ?? 0);

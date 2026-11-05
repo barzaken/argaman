@@ -1,6 +1,8 @@
 import { CrmDataTable } from "@/components/crm/data-table";
 import { KpiCard } from "@/components/kpi-card";
 import { createClient } from "@/lib/supabase/server";
+import { startOfMonthInIsraelIso } from "@/lib/db/format";
+import { toHebrewError } from "@/lib/db/errors";
 
 import { ordersColumnLabels, ordersColumns } from "./columns";
 import type { OrderViewRow } from "@/lib/db/types";
@@ -8,37 +10,41 @@ import type { OrderViewRow } from "@/lib/db/types";
 export default async function OrdersPage() {
   const supabase = await createClient();
 
-  const { data: orders, error } = await supabase
-    .from("orders_view")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(400);
+  // תחילת החודש לפי שעון ישראל (השרת רץ ב-UTC)
+  const monthStartIso = startOfMonthInIsraelIso();
+
+  // כל השאילתות במקביל במקום אחת אחרי השנייה
+  const [
+    { data: orders, error },
+    { count: openOrders },
+    { count: inProduction },
+    { count: readyShip },
+    { count: monthCount },
+  ] = await Promise.all([
+    supabase
+      .from("orders_view")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(400),
+    supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["open", "in_production", "ready_for_delivery"]),
+    supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "in_production"),
+    supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "ready_for_delivery"),
+    supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", monthStartIso),
+  ]);
 
   const list = (orders ?? []) as OrderViewRow[];
-
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
-
-  const { count: openOrders } = await supabase
-    .from("orders")
-    .select("*", { count: "exact", head: true })
-    .in("status", ["open", "in_production", "ready_for_delivery"]);
-
-  const { count: inProduction } = await supabase
-    .from("orders")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "in_production");
-
-  const { count: readyShip } = await supabase
-    .from("orders")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "ready_for_delivery");
-
-  const { count: monthCount } = await supabase
-    .from("orders")
-    .select("*", { count: "exact", head: true })
-    .gte("created_at", startOfMonth.toISOString());
 
   const openOrdersCount = openOrders ?? 0;
   const inProductionCount = inProduction ?? 0;
@@ -71,7 +77,7 @@ export default async function OrdersPage() {
       <div className="flex flex-1 flex-col overflow-auto p-4 md:p-6">
         <div className="mx-auto w-full max-w-[min(100%,80rem)]">
           {error ? (
-            <p className="text-destructive text-sm">{error.message}</p>
+            <p className="text-destructive text-sm">{toHebrewError(error, "טעינת ההזמנות נכשלה")}</p>
           ) : (
             <CrmDataTable
               columns={ordersColumns}
@@ -80,6 +86,7 @@ export default async function OrdersPage() {
               filterPlaceholder="סנן לפי לקוח..."
               columnLabels={ordersColumnLabels}
               navigateRows="order-detail"
+              truncatedAt={400}
             />
           )}
         </div>

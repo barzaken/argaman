@@ -2,8 +2,7 @@
 
 import { useActionState } from "react";
 
-import Link from "next/link";
-import { AtSignIcon, ChevronLeftIcon, LockIcon } from "lucide-react";
+import { AtSignIcon, LockIcon } from "lucide-react";
 
 import { loginAction, type LoginState } from "./actions";
 import { Logo } from "@/components/ui/logo";
@@ -15,7 +14,7 @@ import {
 } from "@/components/ui/input-group";
 import { FloatingPaths } from "@/components/ui/floating-paths";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [state, formAction, isPending] = useActionState<
     LoginState | undefined,
     FormData
@@ -30,11 +29,10 @@ export function LoginForm() {
         <div className="relative z-10 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-xl leading-snug text-secondary-foreground">
-              &ldquo;This platform has helped me save time and serve clients
-              faster than ever.&rdquo;
+              קטלוג, מלאי, הזמנות, משלוחים וגבייה — הכול במקום אחד.
             </p>
             <footer className="font-mono font-semibold text-sm text-muted-foreground">
-              — Team Argaman
+              — ארגמן
             </footer>
           </blockquote>
         </div>
@@ -69,6 +67,7 @@ export function LoginForm() {
           </div>
 
           <form action={formAction} className="space-y-2">
+            {next ? <input type="hidden" name="next" value={next} /> : null}
             <p className="text-start text-muted-foreground text-xs">
               פרטי התחברות
             </p>
@@ -104,7 +103,11 @@ export function LoginForm() {
             </InputGroup>
 
             {state && !state.ok ? (
-              <p className="text-destructive text-sm" role="alert">
+              <p
+                key={state.message}
+                className="animate-in fade-in-0 slide-in-from-top-1 text-destructive text-sm duration-200 ease-out motion-reduce:animate-none"
+                role="alert"
+              >
                 {state.message}
               </p>
             ) : null}
@@ -114,23 +117,6 @@ export function LoginForm() {
             </Button>
           </form>
 
-          <p className="mt-8 text-muted-foreground text-sm">
-            בלחיצה על התחברות הנכם מאשרים את{" "}
-            <Link
-              className="underline underline-offset-4 hover:text-primary"
-              href="#"
-            >
-              תנאי השירות
-            </Link>
-            {" ואת "}
-            <Link
-              className="underline underline-offset-4 hover:text-primary"
-              href="#"
-            >
-              מדיניות הפרטיות
-            </Link>
-            .
-          </p>
         </div>
       </div>
     </main>

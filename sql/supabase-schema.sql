@@ -662,3 +662,15 @@ GRANT EXECUTE ON FUNCTION public.crm_create_order_with_items(uuid, public.priori
 GRANT EXECUTE ON FUNCTION public.crm_delete_order(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.crm_create_delivery_from_order(uuid) TO authenticated;
 
+
+-- -----------------------------------------------------------------------------
+-- אבטחה: Views מכבדים RLS, ול-anon אין גישה. (ראו patch-2026-11-security-and-integrity.sql
+-- שמכיל גם תיקוני לוגיקה — להריץ אותו אחרי הקובץ הזה בהתקנה חדשה.)
+-- -----------------------------------------------------------------------------
+ALTER VIEW public.inventory_items_view SET (security_invoker = true);
+ALTER VIEW public.orders_view          SET (security_invoker = true);
+ALTER VIEW public.order_items_view     SET (security_invoker = true);
+ALTER VIEW public.deliveries_view      SET (security_invoker = true);
+ALTER VIEW public.debtors_view         SET (security_invoker = true);
+ALTER VIEW public.dashboard_kpis_view  SET (security_invoker = true);
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon;

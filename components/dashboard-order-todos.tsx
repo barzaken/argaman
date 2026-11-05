@@ -116,7 +116,7 @@ export function DashboardOrderTodos({ items }: { items: OrderItemViewRow[] }) {
             className="group/collapsible rounded-lg border border-border bg-card"
           >
             <CollapsibleTrigger className="flex w-full flex-wrap items-center gap-2 px-3 py-2.5 text-start hover:bg-muted/40">
-              <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+              <ChevronDown className="size-4 shrink-0 transition-transform duration-200 ease-out-strong group-data-[state=open]/collapsible:rotate-180" />
               <span className="min-w-0 flex-1 font-medium text-card-foreground">
                 {g.name}
               </span>

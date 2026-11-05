@@ -49,14 +49,14 @@ export function DebtorPrintDialog({
   const bundleRef = useRef<HTMLDivElement>(null);
   const pendingModeRef = useRef<ExportMode | null>(null);
 
+  // ההורה מרכיב את הדיאלוג מחדש (key) לכל לקוח — אין צורך באיפוס ב-effect.
+  // שומרים את ה-callbacks ב-ref כדי שרינדור של ההורה לא יבטל ייצוא באמצע.
+  const onOpenChangeRef = useRef(onOpenChange);
+  const onErrorRef = useRef(onError);
   useEffect(() => {
-    if (open) {
-      setSelected(new Set(deliveries.map((d) => d.delivery_id)));
-      setPrintData(null);
-      setBusyMode(null);
-      pendingModeRef.current = null;
-    }
-  }, [open, deliveries]);
+    onOpenChangeRef.current = onOpenChange;
+    onErrorRef.current = onError;
+  });
 
   useEffect(() => {
     const mode = pendingModeRef.current;
@@ -74,7 +74,7 @@ export function DebtorPrintDialog({
         pendingModeRef.current = null;
         setBusyMode(null);
         setPrintData(null);
-        onError("לא ניתן להכין את המסמך");
+        onErrorRef.current("לא ניתן להכין את המסמך");
         return;
       }
 
@@ -84,10 +84,10 @@ export function DebtorPrintDialog({
         } else {
           await downloadDebtorSummaryPdf(sheets, customerName);
         }
-        if (!cancelled) onOpenChange(false);
+        if (!cancelled) onOpenChangeRef.current(false);
       } catch {
         if (!cancelled) {
-          onError(
+          onErrorRef.current(
             mode === "print"
               ? "שגיאה בהדפסה. נסו שוב."
               : "שגיאה בהורדת PDF. נסו שוב."
@@ -110,7 +110,7 @@ export function DebtorPrintDialog({
       cancelled = true;
       window.cancelAnimationFrame(id);
     };
-  }, [printData, onOpenChange, onError, customerName]);
+  }, [printData, customerName]);
 
   const busy = busyMode !== null;
 
@@ -164,7 +164,12 @@ export function DebtorPrintDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!busy) onOpenChange(next);
+        }}
+      >
         <DialogContent dir="rtl" className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>סיכום חוב</DialogTitle>

@@ -1,9 +1,13 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { markDeliveryPaid, updateDelivery } from "../../actions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
 import {
   FormPageShell,
@@ -31,10 +35,11 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-sm font-medium text-foreground">{label}</label>
+    // <label> עוטף את השדה — שם נגיש לקורא מסך ולחיצה על הכותרת מפעילה את השדה
+    <label className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -59,6 +64,7 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
   const [error, setError] = useState<string | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [paidConfirmOpen, setPaidConfirmOpen] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,20 +83,26 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
       green_invoice_id: greenInvoice.trim() || null,
       payment_status: paymentStatus,
       status,
-    });
-    setPending(false);
+    }).catch(actionCrashed);
     if (!res.ok) {
+      setPending(false);
       setError(res.message);
       return;
     }
+    toast.success("תעודת המשלוח עודכנה");
     router.push(`/dashboard/deliveries/${delivery.id}`);
-    router.refresh();
   }
 
   async function handlePaid() {
-    const res = await markDeliveryPaid(delivery.id);
-    if (!res.ok) setDialogError(res.message);
-    else router.refresh();
+    const res = await markDeliveryPaid(delivery.id).catch(actionCrashed);
+    if (!res.ok) {
+      setDialogError(res.message);
+      return false;
+    }
+    // מסנכרנים גם את ה-state של הטופס — אחרת "שמירה" אחר כך מחזירה ל"לא שולם"
+    setPaymentStatus("paid");
+    toast.success("התעודה סומנה כשולמה");
+    router.refresh();
   }
 
   return (
@@ -228,9 +240,23 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
         </div>
 
         <FormStickyFooter className="justify-between">
-          <Button type="button" variant="outline" onClick={() => void handlePaid()}>
-            סמן כשולם
+          <Button
+            type="button"
+            variant="outline"
+            disabled={paymentStatus === "paid" || pending}
+            onClick={() => setPaidConfirmOpen(true)}
+          >
+            {paymentStatus === "paid" ? "שולם" : "סמן כשולם"}
           </Button>
+          <ConfirmDialog
+            open={paidConfirmOpen}
+            onOpenChange={setPaidConfirmOpen}
+            title={`סימון תעודה #${delivery.delivery_number} כשולמה`}
+            description={`לסמן את התעודה כשולמה? היא תוסר מרשימת החייבים.`}
+            confirmLabel="סמן כשולם"
+            pendingLabel="מעדכן…"
+            onConfirm={handlePaid}
+          />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"

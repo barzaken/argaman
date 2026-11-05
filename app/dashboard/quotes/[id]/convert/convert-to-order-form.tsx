@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -59,10 +62,11 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-sm font-medium text-foreground">{label}</label>
+    // <label> עוטף את השדה — שם נגיש לקורא מסך ולחיצה על הכותרת מפעילה את השדה
+    <label className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -169,15 +173,14 @@ export function ConvertToOrderForm({
           piece_type: src.not_in_inventory ? src.piece_type : null,
         };
       }),
-    });
-
-    setPending(false);
+    }).catch(actionCrashed);
     if (!res.ok) {
+      setPending(false);
       setError(res.message);
       return;
     }
+    toast.success("ההצעה הומרה להזמנה");
     router.push(`/dashboard/orders/${res.id}`);
-    router.refresh();
   }
 
   return (

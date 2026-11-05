@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+import { actionCrashed } from "@/lib/action-client";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { cn } from "@/lib/utils";
 import { ChevronDown, Printer } from "lucide-react";
 
 import {
@@ -11,7 +17,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import type { DebtorsViewRow } from "@/lib/db/types";
-import { formatIls } from "@/lib/db/format";
+import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
 import { markDeliveryPaid } from "@/app/dashboard/deliveries/actions";
 import { ErrorDialog } from "@/components/error-dialog";
 import { DebtorPrintDialog } from "@/components/debtors/debtor-print-dialog";
@@ -26,6 +32,21 @@ type CustomerGroup = {
 export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [printCustomerId, setPrintCustomerId] = useState<string | null>(null);
+  const [payTarget, setPayTarget] = useState<DebtorsViewRow | null>(null);
+  const router = useRouter();
+
+  async function handleMarkPaid() {
+    if (!payTarget) return;
+    const res = await markDeliveryPaid(payTarget.delivery_id).catch(
+      actionCrashed
+    );
+    if (!res.ok) {
+      setErrorMessage(res.message);
+      return;
+    }
+    toast.success(`תעודה #${payTarget.delivery_number} סומנה כשולמה`);
+    router.refresh();
+  }
 
   const byCustomer = new Map<string, CustomerGroup>();
 
@@ -64,7 +85,7 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
           >
             <div className="flex flex-wrap items-center gap-2 px-4 py-3">
               <CollapsibleTrigger className="flex min-w-0 flex-1 flex-wrap items-center gap-3 text-start hover:opacity-80">
-                <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                <ChevronDown className="size-4 shrink-0 transition-transform duration-200 ease-out-strong group-data-[state=open]/collapsible:rotate-180" />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-card-foreground">{g.name}</p>
                   <p className="text-muted-foreground text-xs tabular-nums">
@@ -74,7 +95,15 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
                 <div className="text-end text-sm">
                   <p className="font-medium tabular-nums">{formatIls(total)}</p>
                   <p className="text-muted-foreground text-xs">
-                    {g.deliveries.length} תעודות · יעד קרוב {nearestDue ?? "—"}
+                    {g.deliveries.length} תעודות · יעד קרוב{" "}
+                    <span
+                      className={cn(
+                        "tabular-nums",
+                        isPastDue(nearestDue) && "font-medium text-destructive"
+                      )}
+                    >
+                      {formatDateShort(nearestDue)}
+                    </span>
                   </p>
                 </div>
               </CollapsibleTrigger>
@@ -102,8 +131,16 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
                       >
                         משלוח #{d.delivery_number} · הזמנה #{d.order_number}
                       </Link>
-                      <span className="text-muted-foreground text-xs">
-                        יעד תשלום: {d.payment_due_date ?? "—"}
+                      <span
+                        className={cn(
+                          "text-xs tabular-nums",
+                          isPastDue(d.payment_due_date)
+                            ? "font-medium text-destructive"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        יעד תשלום: {formatDateShort(d.payment_due_date)}
+                        {isPastDue(d.payment_due_date) ? " · באיחור" : ""}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -114,11 +151,7 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
                         size="sm"
                         variant="outline"
                         type="button"
-                        onClick={async () => {
-                          const res = await markDeliveryPaid(d.delivery_id);
-                          if (!res.ok) setErrorMessage(res.message);
-                          else window.location.reload();
-                        }}
+                        onClick={() => setPayTarget(d)}
                       >
                         סמן כשולם
                       </Button>
@@ -135,14 +168,32 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
           אין חובות פתוחים לפי תעודות משלוח.
         </p>
       ) : null}
+      {printCustomerId && printGroup ? (
       <DebtorPrintDialog
-        open={printCustomerId !== null && !!printGroup}
+        key={printCustomerId}
+        open
         onOpenChange={(open) => {
           if (!open) setPrintCustomerId(null);
         }}
         customerName={printGroup?.name ?? ""}
         deliveries={printGroup?.deliveries ?? []}
         onError={setErrorMessage}
+      />
+      ) : null}
+      <ConfirmDialog
+        open={payTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setPayTarget(null);
+        }}
+        title={payTarget ? `סימון תעודה #${payTarget.delivery_number} כשולמה` : ""}
+        description={
+          payTarget
+            ? `לסמן ${formatIls(Number(payTarget.total))} של ${payTarget.customer_name} כשולם? התעודה תוסר מרשימת החייבים.`
+            : ""
+        }
+        confirmLabel="סמן כשולם"
+        pendingLabel="מעדכן…"
+        onConfirm={handleMarkPaid}
       />
       <ErrorDialog
         message={errorMessage}

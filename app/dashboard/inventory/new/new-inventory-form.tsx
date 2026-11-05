@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -23,6 +26,8 @@ import { cn } from "@/lib/utils";
 import {
   computeAreaM2FromCm,
   computeVolumeM3FromCm,
+  convertUnitPriceInput,
+  normalizeDecimalInput,
 } from "@/lib/db/calculations";
 import { formatAreaM2 } from "@/lib/db/format";
 import {
@@ -52,10 +57,11 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-sm font-medium text-foreground">{label}</label>
+    // <label> עוטף את השדה — שם נגיש לקורא מסך ולחיצה על הכותרת מפעילה את השדה
+    <label className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -111,10 +117,10 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
   );
 
   const volumePreview = useMemo(() => {
-    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
-    const W = parseFloat(widthCm.replace(",", ".")) || 0;
-    const H = parseFloat(heightCm.replace(",", ".")) || 0;
-    const Q = parseInt(quantity.replace(",", "."), 10) || 0;
+    const L = parseFloat(normalizeDecimalInput(lengthCm)) || 0;
+    const W = parseFloat(normalizeDecimalInput(widthCm)) || 0;
+    const H = parseFloat(normalizeDecimalInput(heightCm)) || 0;
+    const Q = Number(normalizeDecimalInput(quantity)) || 0;
     if (!L || !W || !H || !Q) return null;
     return computeVolumeM3FromCm({
       lengthCm: L,
@@ -125,9 +131,9 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
   }, [lengthCm, widthCm, heightCm, quantity]);
 
   const areaPreview = useMemo(() => {
-    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
-    const W = parseFloat(widthCm.replace(",", ".")) || 0;
-    const Q = parseInt(quantity.replace(",", "."), 10) || 0;
+    const L = parseFloat(normalizeDecimalInput(lengthCm)) || 0;
+    const W = parseFloat(normalizeDecimalInput(widthCm)) || 0;
+    const Q = Number(normalizeDecimalInput(quantity)) || 0;
     if (!L || !W || !Q) return null;
     return computeAreaM2FromCm({ lengthCm: L, widthCm: W, quantity: Q });
   }, [lengthCm, widthCm, quantity]);
@@ -139,10 +145,10 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
     setError(null);
     const fd = new FormData();
     fd.set("stone_id", selectedStoneId);
-    const L = parseFloat(lengthCm.replace(",", ".")) || 0;
-    const W = parseFloat(widthCm.replace(",", ".")) || 0;
+    const L = parseFloat(normalizeDecimalInput(lengthCm)) || 0;
+    const W = parseFloat(normalizeDecimalInput(widthCm)) || 0;
     const H =
-      parseFloat(heightCm.replace(",", ".")) ||
+      parseFloat(normalizeDecimalInput(heightCm)) ||
       (pricingUnit === "m2" ? 2 : 0);
     fd.set("length_m", String(L / 100));
     fd.set("width_m", String(W / 100));
@@ -150,23 +156,23 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
     fd.set("quantity_total", quantity);
     fd.set("pricing_unit", pricingUnit);
     if (pricingUnit === "m3") {
-      fd.set("price_per_m3", pricePerM3.replace(",", "."));
+      fd.set("price_per_m3", normalizeDecimalInput(pricePerM3));
     } else {
-      fd.set("price_per_m2", pricePerM2.replace(",", "."));
+      fd.set("price_per_m2", normalizeDecimalInput(pricePerM2));
     }
-    fd.set("customer_price", customerPrice.replace(",", "."));
+    fd.set("customer_price", normalizeDecimalInput(customerPrice));
     fd.set("status", status);
     fd.set("finish_level", finishLevel);
     fd.set("piece_type", pieceType);
     if (status === "in_transit") fd.set("expected_arrival_date", expectedDate);
-    const res = await createInventoryItem(fd);
-    setPending(false);
+    const res = await createInventoryItem(fd).catch(actionCrashed);
     if (!res.ok) {
+      setPending(false);
       setError(res.message);
       return;
     }
+    toast.success("הפריט נוסף למלאי");
     router.push("/dashboard/inventory");
-    router.refresh();
   }
 
   const selectableStones = stones.filter((s) => s.is_active);
@@ -235,9 +241,20 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
             >
               <Tabs
                 value={pricingUnit}
-                onValueChange={(v) =>
-                  setPricingUnit(v as InventoryPricingUnitDb)
-                }
+                onValueChange={(v) => {
+                  const next = v as InventoryPricingUnitDb;
+                  if (next === pricingUnit) return;
+                  // ממירים את המחירים ליחידה החדשה — אחרת 4,899 לקו״ב
+                  // נשמר בטעות כ-4,899 למ״ר (פי 50 בעובי 2 ס״מ).
+                  const H = parseFloat(normalizeDecimalInput(heightCm)) || 0;
+                  setCustomerPrice((c) => convertUnitPriceInput(c, next, H));
+                  if (next === "m2") {
+                    setPricePerM2(convertUnitPriceInput(pricePerM3, "m2", H));
+                  } else {
+                    setPricePerM3(convertUnitPriceInput(pricePerM2, "m3", H));
+                  }
+                  setPricingUnit(next);
+                }}
               >
                 <TabsList className="w-full">
                   <TabsTrigger value="m3" className="flex-1">

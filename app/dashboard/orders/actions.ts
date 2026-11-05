@@ -3,6 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { toHebrewError } from "@/lib/db/errors";
+import {
+  optionalDateSchema,
+  optionalHttpUrlSchema,
+  orderItemStatusSchema,
+} from "@/lib/db/validation";
+
 import type {
   InventoryFinishLevelDb,
   InventoryPieceTypeDb,
@@ -66,8 +73,8 @@ const orderItemInputSchema = z
 const createOrderPayloadSchema = z.object({
   customer_id: z.string().uuid(),
   priority: z.enum(["low", "medium", "urgent"]),
-  supply_due_date: z.string().optional().nullable(),
-  signature_url: z.string().optional().nullable(),
+  supply_due_date: optionalDateSchema,
+  signature_url: optionalHttpUrlSchema,
   vat_rate: z.coerce.number().min(0).max(1).optional(),
   vat_included: z.boolean(),
   items: z.array(orderItemInputSchema).min(1, "נא להוסיף לפחות פריט אחד תקין"),
@@ -77,7 +84,7 @@ export async function createOrder(
   raw: z.input<typeof createOrderPayloadSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
   const { supabase } = auth;
 
   const parsed = createOrderPayloadSchema.safeParse(raw);
@@ -141,7 +148,7 @@ export async function createOrder(
         await rollbackCreatedInventory();
         return {
           ok: false,
-          message: invError?.message ?? "שגיאה ביצירת פריט מלאי",
+          message: toHebrewError(invError, "שגיאה ביצירת פריט מלאי"),
         };
       }
 
@@ -181,7 +188,7 @@ export async function createOrder(
 
   if (error) {
     await rollbackCreatedInventory();
-    return { ok: false, message: error.message };
+    return { ok: false, message: toHebrewError(error) };
   }
 
   const orderId = data as string;
@@ -195,7 +202,7 @@ export async function createOrder(
 
 export async function deleteOrder(orderId: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = z.string().uuid().safeParse(orderId);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -204,7 +211,7 @@ export async function deleteOrder(orderId: string): Promise<ActionResult> {
     p_order_id: parsed.data,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/orders");
   revalidatePath("/dashboard/order-items");
@@ -216,8 +223,8 @@ export async function deleteOrder(orderId: string): Promise<ActionResult> {
 const updateOrderHeaderSchema = z.object({
   id: z.string().uuid(),
   priority: z.enum(["low", "medium", "urgent"]),
-  supply_due_date: z.string().optional().nullable(),
-  signature_url: z.string().optional().nullable(),
+  supply_due_date: optionalDateSchema,
+  signature_url: optionalHttpUrlSchema,
   status: z.enum([
     "open",
     "in_production",
@@ -231,7 +238,7 @@ export async function updateOrderHeader(
   raw: z.infer<typeof updateOrderHeaderSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = updateOrderHeaderSchema.safeParse(raw);
   if (!parsed.success) {
@@ -251,11 +258,13 @@ export async function updateOrderHeader(
     })
     .eq("id", parsed.data.id);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/orders");
   revalidatePath(`/dashboard/orders/${parsed.data.id}`);
   revalidatePath("/dashboard/order-items");
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 
@@ -264,19 +273,22 @@ export async function updateOrderItemStatus(
   status: OrderItemStatusDb
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const idParsed = z.string().uuid().safeParse(itemId);
   if (!idParsed.success) return { ok: false, message: "מזהה לא תקין" };
+  const statusParsed = orderItemStatusSchema.safeParse(status);
+  if (!statusParsed.success) return { ok: false, message: "סטטוס לא תקין" };
 
   const { error } = await auth.supabase
     .from("order_items")
-    .update({ status })
+    .update({ status: statusParsed.data })
     .eq("id", idParsed.data);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/order-items");
   revalidatePath("/dashboard/orders");
+  revalidatePath("/dashboard");
   return { ok: true };
 }

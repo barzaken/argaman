@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,7 +14,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
 
 import type { QuoteViewRow } from "@/lib/db/types";
-import { formatIls } from "@/lib/db/format";
+import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
+import { cn } from "@/lib/utils";
 import { deleteQuote } from "./actions";
 
 const statusLabels: Record<QuoteViewRow["status"], string> = {
@@ -48,9 +52,13 @@ function QuoteActions({ quote }: { quote: QuoteViewRow }) {
   const canDelete = quote.status !== "converted";
 
   async function handleDelete() {
-    const res = await deleteQuote(quote.id);
-    if (!res.ok) setErrorMessage(res.message);
-    else window.location.reload();
+    const res = await deleteQuote(quote.id).catch(actionCrashed);
+    if (!res.ok) {
+      setErrorMessage(res.message);
+      return;
+    }
+    toast.success(`הצעת מחיר #${quote.quote_number} נמחקה`);
+    router.refresh();
   }
 
   return (
@@ -94,7 +102,8 @@ function QuoteActions({ quote }: { quote: QuoteViewRow }) {
         description="למחוק את הצעת המחיר? פעולה זו לא ניתנת לביטול."
         confirmLabel="מחיקה"
         confirmVariant="destructive"
-        onConfirm={() => void handleDelete()}
+        onConfirm={handleDelete}
+        pendingLabel="מוחק…"
       />
       <ErrorDialog
         message={errorMessage}
@@ -130,7 +139,18 @@ export const quotesColumns: ColumnDef<QuoteViewRow>[] = [
     accessorKey: "valid_until",
     header: () => <div className="text-start">תוקף</div>,
     cell: ({ row }) =>
-      row.original.valid_until ?? (
+      row.original.valid_until ? (
+        <span
+          className={cn(
+            "tabular-nums",
+            row.original.status === "open" &&
+              isPastDue(row.original.valid_until) &&
+              "font-medium text-destructive"
+          )}
+        >
+          {formatDateShort(row.original.valid_until)}
+        </span>
+      ) : (
         <span className="text-muted-foreground">—</span>
       ),
   },

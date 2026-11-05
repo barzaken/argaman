@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 
+import { toHebrewError } from "@/lib/db/errors";
+
 import type {
   DeliveryItemRow,
   DeliveryViewRow,
@@ -30,7 +32,7 @@ export async function getDebtorPrintData(
   deliveryIds: string[]
 ): Promise<DebtorPrintResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = z.array(z.string().uuid()).min(1).safeParse(deliveryIds);
   if (!parsed.success) {
@@ -45,7 +47,7 @@ export async function getDebtorPrintData(
     .in("id", ids);
 
   if (deliveriesError) {
-    return { ok: false, message: deliveriesError.message };
+    return { ok: false, message: toHebrewError(deliveriesError) };
   }
 
   if (!deliveries || deliveries.length === 0) {
@@ -72,7 +74,7 @@ export async function getDebtorPrintData(
     .in("delivery_id", ids);
 
   if (itemsError) {
-    return { ok: false, message: itemsError.message };
+    return { ok: false, message: toHebrewError(itemsError) };
   }
 
   const linesByDelivery = new Map<string, DeliveryItemRow[]>();

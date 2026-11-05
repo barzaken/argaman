@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { toHebrewError } from "@/lib/db/errors";
+import { optionalDateSchema,optionalHttpUrlSchema } from "@/lib/db/validation";
+
 import { quoteItemPricePerM3ForOrder } from "@/lib/db/calculations";
 import type {
   InventoryFinishLevelDb,
@@ -60,7 +63,7 @@ const quoteItemInputSchema = z
 
 const createQuotePayloadSchema = z.object({
   customer_id: z.string().uuid(),
-  valid_until: z.string().optional().nullable(),
+  valid_until: optionalDateSchema,
   notes: z.string().optional().nullable(),
   vat_rate: z.coerce.number().min(0).max(1).optional(),
   vat_included: z.boolean(),
@@ -99,8 +102,8 @@ const convertQuoteItemSchema = z
 const createOrderFromQuoteSchema = z.object({
   quote_id: z.string().uuid(),
   priority: z.enum(["low", "medium", "urgent"]),
-  supply_due_date: z.string().optional().nullable(),
-  signature_url: z.string().optional().nullable(),
+  supply_due_date: optionalDateSchema,
+  signature_url: optionalHttpUrlSchema,
   items: z.array(convertQuoteItemSchema).min(1),
 });
 
@@ -108,7 +111,7 @@ export async function createQuote(
   raw: z.input<typeof createQuotePayloadSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = createQuotePayloadSchema.safeParse(raw);
   if (!parsed.success) {
@@ -129,7 +132,7 @@ export async function createQuote(
     p_items: parsed.data.items,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   const quoteId = data as string;
 
@@ -142,7 +145,7 @@ export async function updateQuote(
   raw: z.input<typeof updateQuotePayloadSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = updateQuotePayloadSchema.safeParse(raw);
   if (!parsed.success) {
@@ -164,7 +167,7 @@ export async function updateQuote(
     p_items: parsed.data.items,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/quotes");
   revalidatePath(`/dashboard/quotes/${parsed.data.id}`);
@@ -174,7 +177,7 @@ export async function updateQuote(
 
 export async function deleteQuote(quoteId: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = z.string().uuid().safeParse(quoteId);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -183,7 +186,7 @@ export async function deleteQuote(quoteId: string): Promise<ActionResult> {
     p_quote_id: parsed.data,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/quotes");
   revalidatePath("/dashboard");
@@ -194,7 +197,7 @@ export async function createOrderFromQuote(
   raw: z.input<typeof createOrderFromQuoteSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
   const { supabase } = auth;
 
   const parsed = createOrderFromQuoteSchema.safeParse(raw);
@@ -242,7 +245,7 @@ export async function createOrderFromQuote(
       await rollbackCreatedInventory();
       return {
         ok: false,
-        message: qiError?.message ?? "פריט הצעה לא נמצא",
+        message: toHebrewError(qiError, "פריט הצעה לא נמצא"),
       };
     }
 
@@ -286,7 +289,7 @@ export async function createOrderFromQuote(
       await rollbackCreatedInventory();
       return {
         ok: false,
-        message: invError?.message ?? "שגיאה ביצירת פריט מלאי",
+        message: toHebrewError(invError, "שגיאה ביצירת פריט מלאי"),
       };
     }
 
@@ -307,7 +310,7 @@ export async function createOrderFromQuote(
 
   if (error) {
     await rollbackCreatedInventory();
-    return { ok: false, message: error.message };
+    return { ok: false, message: toHebrewError(error) };
   }
 
   const orderId = data as string;

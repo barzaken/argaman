@@ -1,5 +1,10 @@
 "use client";
 
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -39,6 +44,8 @@ import {
   quotePriceLabel,
   computeTotalWithVat,
   computeVatAmount,
+  normalizeDecimalInput,
+  roundMoney,
 } from "@/lib/db/calculations";
 import { formatAreaM2, formatIls, formatVolumeM3 } from "@/lib/db/format";
 
@@ -77,11 +84,11 @@ function newEmptyLine(): Line {
 
 function parseLineNumbers(ln: Line) {
   return {
-    L: parseFloat(ln.length_cm.replace(",", ".")) || 0,
-    W: parseFloat(ln.width_cm.replace(",", ".")) || 0,
-    H: parseFloat(ln.height_cm.replace(",", ".")) || 0,
-    Q: parseInt(ln.quantity.replace(",", "."), 10),
-    p: parseFloat(ln.price.replace(",", ".")),
+    L: parseFloat(normalizeDecimalInput(ln.length_cm)) || 0,
+    W: parseFloat(normalizeDecimalInput(ln.width_cm)) || 0,
+    H: parseFloat(normalizeDecimalInput(ln.height_cm)) || 0,
+    Q: Number(normalizeDecimalInput(ln.quantity)),
+    p: parseFloat(normalizeDecimalInput(ln.price)),
   };
 }
 
@@ -157,7 +164,10 @@ function validateLines(lines: Line[]): string | null {
   return null;
 }
 
-function buildLineFromQuoteItem(ln: QuoteItemViewRow): Line {
+function buildLineFromQuoteItem(
+  ln: QuoteItemViewRow,
+  vatFactor: number
+): Line {
   const unit = ln.pricing_unit ?? "m3";
   const price =
     unit === "m2"
@@ -173,7 +183,10 @@ function buildLineFromQuoteItem(ln: QuoteItemViewRow): Line {
     width_cm: metersToCmInput(Number(ln.width_m)),
     height_cm: metersToCmInput(Number(ln.height_m)),
     quantity: String(ln.quantity),
-    price: price != null ? String(price) : "",
+    // המחיר במסד שמור לפני מע״מ. אם ההצעה הוזנה "כולל מע״מ" מציגים אותו
+    // כולל מע״מ — אחרת שמירה חוזרת הייתה מחלקת שוב ב-1.18 ומורידה 18% מהמחיר.
+    price:
+      price != null ? String(roundMoney(Number(price) * vatFactor)) : "",
   };
 }
 
@@ -227,10 +240,11 @@ function Field({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label className="text-sm font-medium text-foreground">{label}</label>
+    // <label> עוטף את השדה — שם נגיש לקורא מסך ולחיצה על הכותרת מפעילה את השדה
+    <label className={cn("flex flex-col gap-1.5", className)}>
+      <span className="text-sm font-medium text-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -256,12 +270,39 @@ export function QuoteForm({
   const [vatIncluded, setVatIncluded] = useState(quote?.vat_included ?? false);
   const [lines, setLines] = useState<Line[]>(() => {
     if (initialLines.length > 0) {
-      return initialLines.map(buildLineFromQuoteItem);
+      const factor = quote?.vat_included ? 1 + Number(quote.vat_rate) : 1;
+      return initialLines.map((ln) => buildLineFromQuoteItem(ln, factor));
     }
     return [newEmptyLine()];
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // במצב עריכה: כל שינוי בטופס מסמן "לא נשמר"
+  const [hasEdited, setHasEdited] = useState(false);
+  useUnsavedChangesWarning(!pending && (mode === "edit" ? hasEdited : !!customerId || lines.some(isLineTouched)));
+
+  /** מחירים מיוחדים שמורים לפני מע״מ — מותאמים למצב "כולל מע״מ" */
+  function shownPrice(exVat: number): string {
+    return String(
+      vatIncluded ? roundMoney(exVat * (1 + VAT_RATE)) : roundMoney(exVat)
+    );
+  }
+
+  function handleVatIncludedChange(next: boolean) {
+    if (next === vatIncluded) return;
+    const factor = 1 + VAT_RATE;
+    setVatIncluded(next);
+    setLines((prev) =>
+      prev.map((ln) => {
+        const p = parseFloat(normalizeDecimalInput(ln.price));
+        if (!ln.price.trim() || Number.isNaN(p)) return ln;
+        return {
+          ...ln,
+          price: String(roundMoney(next ? p * factor : p / factor)),
+        };
+      })
+    );
+  }
 
   function handleCustomerChange(nextCustomerId: string) {
     setCustomerId(nextCustomerId);
@@ -275,7 +316,7 @@ export function QuoteForm({
           ln.pricing_unit
         );
         if (dp == null || Number.isNaN(dp)) return ln;
-        return { ...ln, price: String(dp) };
+        return { ...ln, price: shownPrice(dp) };
       })
     );
   }
@@ -292,7 +333,7 @@ export function QuoteForm({
             overrides,
             next.pricing_unit
           );
-          next.price = dp != null && !Number.isNaN(dp) ? String(dp) : "";
+          next.price = dp != null && !Number.isNaN(dp) ? shownPrice(dp) : "";
         }
         return next;
       })
@@ -313,9 +354,9 @@ export function QuoteForm({
           quantity: Q,
         });
       }
-      const priceEx = vatIncluded
-        ? pricePerM3ExVatFromInclusive(p, VAT_RATE)
-        : p;
+      const priceEx = roundMoney(
+        vatIncluded ? pricePerM3ExVatFromInclusive(p, VAT_RATE) : p
+      );
       if (!isLineComplete(ln)) continue;
       subtotalEx += computeQuoteLineSubtotal(
         ln.pricing_unit,
@@ -355,18 +396,19 @@ export function QuoteForm({
       items,
     };
 
-    const res =
+    const res = await (
       mode === "edit" && quote
-        ? await updateQuote({ id: quote.id, ...payload })
-        : await createQuote(payload);
+        ? updateQuote({ id: quote.id, ...payload })
+        : createQuote(payload)
+    ).catch(actionCrashed);
 
-    setPending(false);
     if (!res.ok) {
+      setPending(false);
       setError(res.message);
       return;
     }
+    toast.success(mode === "edit" ? "הצעת המחיר עודכנה" : "הצעת המחיר נוצרה");
     router.push(`/dashboard/quotes/${res.id ?? quote?.id}`);
-    router.refresh();
   }
 
   const title =
@@ -378,6 +420,7 @@ export function QuoteForm({
     <FormPageShell>
       <form
         onSubmit={handleSubmit}
+        onChangeCapture={() => setHasEdited(true)}
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">
@@ -431,7 +474,7 @@ export function QuoteForm({
           <input
             type="checkbox"
             checked={vatIncluded}
-            onChange={(e) => setVatIncluded(e.target.checked)}
+            onChange={(e) => handleVatIncludedChange(e.target.checked)}
           />
           מחיר בפריטים כולל מע״מ (יומר לנטו לפני שמירה)
         </label>

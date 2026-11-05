@@ -1,5 +1,6 @@
 import { KpiCard } from "@/components/kpi-card";
 import { createClient } from "@/lib/supabase/server";
+import { toHebrewError } from "@/lib/db/errors";
 
 import { type InventoryRow } from "./columns";
 import { InventoryTable } from "./inventory-table";
@@ -38,7 +39,7 @@ export default async function InventoryPage() {
       <div className="flex flex-1 flex-col overflow-auto p-4 md:p-6">
         <div className="mx-auto w-full max-w-[min(100%,80rem)]">
           {error ? (
-            <p className="text-destructive text-sm">{error.message}</p>
+            <p className="text-destructive text-sm">{toHebrewError(error, "טעינת הנתונים נכשלה. נסו לרענן את הדף.")}</p>
           ) : (
             <InventoryTable data={list} />
           )}

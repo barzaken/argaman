@@ -41,7 +41,7 @@ function StoneCollapsible({ label, items }: { label: string; items: StoneItem[] 
         >
           <CollapsibleTrigger>
             {label}
-            <ChevronDown className="ms-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+            <ChevronDown className="ms-auto size-4 transition-transform duration-200 ease-out-strong group-data-[state=open]/collapsible:rotate-180" />
           </CollapsibleTrigger>
         </SidebarGroupLabel>
         <CollapsibleContent>

@@ -1,5 +1,10 @@
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
-  return <LoginForm />;
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>;
+}) {
+  const { next } = await searchParams;
+  return <LoginForm next={typeof next === "string" ? next : undefined} />;
 }

@@ -8,14 +8,17 @@ import type {
   ColumnFiltersState,
   OnChangeFn,
   RowSelectionState,
+  SortingState,
   VisibilityState,
 } from "@tanstack/react-table";
 import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
+  getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -73,6 +76,8 @@ export type CrmDataTableProps<
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
   getRowCanSelect?: (row: TData) => boolean;
   selectionActions?: React.ReactNode;
+  /** אם השאילתה מוגבלת (למשל 400 אחרונות) — מציגים הערה כשמגיעים לתקרה */
+  truncatedAt?: number;
 };
 
 export function CrmDataTable<
@@ -90,11 +95,13 @@ export function CrmDataTable<
   onRowSelectionChange,
   getRowCanSelect,
   selectionActions,
+  truncatedAt,
 }: CrmDataTableProps<TData, TValue>) {
   const router = useRouter();
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
+  const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [internalRowSelection, setInternalRowSelection] =
@@ -111,6 +118,8 @@ export function CrmDataTable<
     getCoreRowModel: getCoreRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     ...(enableRowSelection
       ? {
@@ -121,6 +130,7 @@ export function CrmDataTable<
         }
       : { enableRowSelection: false }),
     state: {
+      sorting,
       columnFilters,
       columnVisibility,
       ...(enableRowSelection ? { rowSelection: selectionState } : {}),
@@ -178,16 +188,50 @@ export function CrmDataTable<
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const content = header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      );
+                  const canSort = !header.isPlaceholder && header.column.getCanSort();
+                  const sorted = header.column.getIsSorted();
+                  return (
+                    <TableHead
+                      key={header.id}
+                      aria-sort={
+                        sorted === "asc"
+                          ? "ascending"
+                          : sorted === "desc"
+                            ? "descending"
+                            : undefined
+                      }
+                    >
+                      {canSort ? (
+                        <button
+                          type="button"
+                          onClick={header.column.getToggleSortingHandler()}
+                          className="group/sort -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {content}
+                          {sorted === "asc" ? (
+                            <ArrowUp className="size-3.5 shrink-0" aria-hidden />
+                          ) : sorted === "desc" ? (
+                            <ArrowDown className="size-3.5 shrink-0" aria-hidden />
+                          ) : (
+                            <ChevronsUpDown
+                              className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover/sort:opacity-50 group-focus-visible/sort:opacity-50"
+                              aria-hidden
+                            />
+                          )}
+                        </button>
+                      ) : (
+                        content
+                      )}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -205,9 +249,31 @@ export function CrmDataTable<
                         ? "selected"
                         : undefined
                     }
-                    className={cn(href && "cursor-pointer hover:bg-muted/60")}
-                    onClick={() => {
-                      if (href) router.push(href);
+                    className={cn(
+                      href &&
+                        "cursor-pointer transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+                    )}
+                    tabIndex={href ? 0 : undefined}
+                    onMouseEnter={href ? () => router.prefetch(href) : undefined}
+                    onClick={(e) => {
+                      if (!href) return;
+                      // לא לנווט אם המשתמש סימן טקסט להעתקה
+                      if (window.getSelection()?.toString()) return;
+                      if (e.metaKey || e.ctrlKey) {
+                        window.open(href, "_blank", "noopener");
+                        return;
+                      }
+                      router.push(href);
+                    }}
+                    onAuxClick={(e) => {
+                      if (href && e.button === 1) {
+                        window.open(href, "_blank", "noopener");
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (href && e.key === "Enter" && e.target === e.currentTarget) {
+                        router.push(href);
+                      }
                     }}
                   >
                     {row.getVisibleCells().map((cell) => (
@@ -225,15 +291,25 @@ export function CrmDataTable<
               <TableRow>
                 <TableCell
                   colSpan={visibleColumnCount || columns.length}
-                  className="h-24 text-center"
+                  className="h-24 text-center text-muted-foreground"
                 >
-                  אין תוצאות.
+                  {data.length === 0 ? "אין עדיין רשומות." : "אין תוצאות לסינון."}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+      {data.length > 0 ? (
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {table.getFilteredRowModel().rows.length === data.length
+            ? `${data.length} רשומות`
+            : `${table.getFilteredRowModel().rows.length} מתוך ${data.length} רשומות`}
+          {truncatedAt && data.length >= truncatedAt
+            ? ` · מוצגות ${truncatedAt} האחרונות בלבד`
+            : ""}
+        </p>
+      ) : null}
     </div>
   );
 }

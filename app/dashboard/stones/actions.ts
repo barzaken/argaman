@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { toHebrewError } from "@/lib/db/errors";
+
 import { normalizeHex } from "@/lib/db/format";
 import { requireAuth } from "@/lib/supabase/auth-helpers";
 
@@ -19,7 +21,7 @@ const stoneSchema = z.object({
 
 export async function createStone(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = stoneSchema.safeParse({
     name: formData.get("name"),
@@ -38,7 +40,7 @@ export async function createStone(formData: FormData): Promise<ActionResult> {
     is_active: true,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/stones");
   revalidatePath("/dashboard");
@@ -51,7 +53,7 @@ const updateStoneSchema = stoneSchema.extend({
 
 export async function updateStone(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = updateStoneSchema.safeParse({
     id: formData.get("id"),
@@ -73,7 +75,7 @@ export async function updateStone(formData: FormData): Promise<ActionResult> {
     })
     .eq("id", parsed.data.id);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/stones");
   revalidatePath(`/dashboard/stones/${parsed.data.id}/edit`);
@@ -83,7 +85,7 @@ export async function updateStone(formData: FormData): Promise<ActionResult> {
 
 export async function archiveStone(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -93,7 +95,7 @@ export async function archiveStone(id: string): Promise<ActionResult> {
     .update({ is_active: false })
     .eq("id", parsed.data);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/stones");
   revalidatePath("/dashboard");

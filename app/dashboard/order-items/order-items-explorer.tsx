@@ -1,5 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { actionCrashed } from "@/lib/action-client";
+
 import { useState } from "react";
 
 import {
@@ -90,6 +94,32 @@ export function OrderItemsExplorer({
   items: OrderItemViewRow[];
 }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const router = useRouter();
+  // עדכון אופטימי: הסטטוס מתחלף מיד, ומתבטל אם השמירה נכשלה
+  const [statusOverrides, setStatusOverrides] = useState<
+    Record<string, OrderItemStatusDb>
+  >({});
+  const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set());
+
+  async function changeStatus(ln: OrderItemViewRow, next: OrderItemStatusDb) {
+    const prev = statusOverrides[ln.id] ?? ln.status;
+    if (prev === next) return;
+    setStatusOverrides((m) => ({ ...m, [ln.id]: next }));
+    setSavingIds((s) => new Set(s).add(ln.id));
+    const res = await updateOrderItemStatus(ln.id, next).catch(actionCrashed);
+    setSavingIds((s) => {
+      const copy = new Set(s);
+      copy.delete(ln.id);
+      return copy;
+    });
+    if (!res.ok) {
+      setStatusOverrides((m) => ({ ...m, [ln.id]: prev }));
+      setErrorMessage(res.message);
+      return;
+    }
+    toast.success(`${ln.stone_name} · ${statusLabel(next)}`);
+    router.refresh();
+  }
   const sorted = [...items].sort((a, b) => {
     const pr = PRI_RANK[a.order_priority] - PRI_RANK[b.order_priority];
     if (pr !== 0) return pr;
@@ -144,7 +174,7 @@ export function OrderItemsExplorer({
             className="group/collapsible rounded-lg border border-border bg-card"
           >
             <CollapsibleTrigger className="flex w-full flex-wrap items-center gap-2 px-4 py-3 text-start hover:bg-muted/40">
-              <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+              <ChevronDown className="size-4 shrink-0 transition-transform duration-200 ease-out-strong group-data-[state=open]/collapsible:rotate-180" />
               <span className="font-semibold text-card-foreground">{bundle.name}</span>
               {worstPri ? <PriorityBadge p={worstPri} /> : null}
             </CollapsibleTrigger>
@@ -157,7 +187,7 @@ export function OrderItemsExplorer({
                     className="group/collapsible rounded-md border border-border bg-background"
                   >
                     <CollapsibleTrigger className="flex w-full flex-wrap items-center gap-2 px-3 py-2 text-start hover:bg-muted/40">
-                      <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                      <ChevronDown className="size-4 shrink-0 transition-transform duration-200 ease-out-strong group-data-[state=open]/collapsible:rotate-180" />
                       <span className="text-sm font-medium">
                         הזמנה #{ord.orderNumber}
                       </span>
@@ -192,15 +222,11 @@ export function OrderItemsExplorer({
                             >
                               <Select
                                 dir="rtl"
-                                value={ln.status}
-                                onValueChange={async (v) => {
-                                  const res = await updateOrderItemStatus(
-                                    ln.id,
-                                    v as OrderItemStatusDb
-                                  );
-                                  if (!res.ok) setErrorMessage(res.message);
-                                  else window.location.reload();
-                                }}
+                                value={statusOverrides[ln.id] ?? ln.status}
+                                disabled={savingIds.has(ln.id)}
+                                onValueChange={(v) =>
+                                  void changeStatus(ln, v as OrderItemStatusDb)
+                                }
                               >
                                 <SelectTrigger className="w-[min(100%,12rem)]">
                                   <SelectValue />

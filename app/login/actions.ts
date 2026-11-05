@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { toHebrewError } from "@/lib/db/errors";
+
 import { createClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -35,9 +37,21 @@ export async function loginAction(
   });
 
   if (error) {
-    return { ok: false, message: error.message };
+    return {
+      ok: false,
+      message: toHebrewError(error, "ההתחברות נכשלה. נסו שוב."),
+    };
   }
 
+  // רק נתיב פנימי תחת /dashboard (מונע open-redirect)
+  const next = formData.get("next");
+  const target =
+    typeof next === "string" &&
+    next.startsWith("/dashboard") &&
+    !next.startsWith("//")
+      ? next
+      : "/dashboard";
+
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(target);
 }

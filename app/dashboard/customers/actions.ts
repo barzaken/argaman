@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { toHebrewError } from "@/lib/db/errors";
+
 import { requireAuth } from "@/lib/supabase/auth-helpers";
 
 export type ActionResult =
@@ -15,7 +17,7 @@ const customerSchema = z.object({
   email: z.preprocess(
     (v) =>
       typeof v === "string" && v.trim() === "" ? undefined : v,
-    z.string().email("אימייל לא תקין").optional()
+    z.string().trim().email("אימייל לא תקין").optional()
   ),
   phone: z.preprocess(
     (v) =>
@@ -31,7 +33,7 @@ const customerSchema = z.object({
 
 export async function createCustomer(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = customerSchema.safeParse({
     name: formData.get("name"),
@@ -57,7 +59,7 @@ export async function createCustomer(formData: FormData): Promise<ActionResult> 
     is_active: true,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard");
@@ -70,7 +72,7 @@ const updateCustomerSchema = customerSchema.extend({
 
 export async function updateCustomer(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = updateCustomerSchema.safeParse({
     id: formData.get("id"),
@@ -99,7 +101,7 @@ export async function updateCustomer(formData: FormData): Promise<ActionResult> 
     })
     .eq("id", parsed.data.id);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/customers");
   revalidatePath(`/dashboard/customers/${parsed.data.id}`);
@@ -109,7 +111,7 @@ export async function updateCustomer(formData: FormData): Promise<ActionResult> 
 
 export async function archiveCustomer(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -119,9 +121,10 @@ export async function archiveCustomer(id: string): Promise<ActionResult> {
     .update({ is_active: false })
     .eq("id", parsed.data);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/customers");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 
@@ -135,7 +138,7 @@ export async function upsertCustomerStonePrice(
   formData: FormData
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = priceOverrideSchema.safeParse({
     customer_id: formData.get("customer_id"),
@@ -159,7 +162,7 @@ export async function upsertCustomerStonePrice(
     { onConflict: "customer_id,stone_id" }
   );
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath(`/dashboard/customers/${parsed.data.customer_id}`);
   return { ok: true };
@@ -170,18 +173,21 @@ export async function deleteCustomerStonePrice(
   rowId: string
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const idParsed = z.string().uuid().safeParse(rowId);
-  if (!idParsed.success) return { ok: false, message: "מזהה לא תקין" };
+  const customerParsed = z.string().uuid().safeParse(customerId);
+  if (!idParsed.success || !customerParsed.success) {
+    return { ok: false, message: "מזהה לא תקין" };
+  }
 
   const { error } = await auth.supabase
     .from("customer_stone_prices")
     .delete()
     .eq("id", idParsed.data)
-    .eq("customer_id", customerId);
+    .eq("customer_id", customerParsed.data);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath(`/dashboard/customers/${customerId}`);
   return { ok: true };

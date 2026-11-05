@@ -1,6 +1,7 @@
 import { CrmDataTable } from "@/components/crm/data-table";
 import { KpiCard } from "@/components/kpi-card";
 import { createClient } from "@/lib/supabase/server";
+import { toHebrewError } from "@/lib/db/errors";
 
 import {
   customerColumnLabels,
@@ -11,24 +12,29 @@ import {
 export default async function CustomersPage() {
   const supabase = await createClient();
 
-  const { data: customers, error } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("is_active", true)
-    .order("name");
-
-  const { data: ordersRows } = await supabase.from("orders").select("customer_id");
+  // שלוש השאילתות במקביל.
+  // הערה: PostgREST מחזיר עד 1000 שורות כברירת מחדל — כשיהיו יותר מ-1000
+  // הזמנות/תעודות פתוחות כדאי להעביר את הספירה ל-View מסכם ב-DB.
+  const [{ data: customers, error }, { data: ordersRows }, { data: unpaidDeliveries }] =
+    await Promise.all([
+      supabase
+        .from("customers")
+        .select("*")
+        .eq("is_active", true)
+        .order("name"),
+      supabase.from("orders").select("customer_id"),
+      supabase
+        .from("deliveries")
+        .select("customer_id, total")
+        .eq("payment_status", "unpaid")
+        .neq("status", "cancelled"),
+    ]);
 
   const orderCountMap = new Map<string, number>();
   for (const o of ordersRows ?? []) {
     const cid = o.customer_id as string;
     orderCountMap.set(cid, (orderCountMap.get(cid) ?? 0) + 1);
   }
-
-  const { data: unpaidDeliveries } = await supabase
-    .from("deliveries_view")
-    .select("customer_id, total")
-    .eq("payment_status", "unpaid");
 
   const unpaidMap = new Map<string, number>();
   for (const d of unpaidDeliveries ?? []) {
@@ -75,13 +81,13 @@ export default async function CustomersPage() {
       <div className="flex flex-1 flex-col overflow-auto p-4 md:p-6">
         <div className="mx-auto w-full max-w-[min(100%,80rem)]">
           {error ? (
-            <p className="text-destructive text-sm">{error.message}</p>
+            <p className="text-destructive text-sm">{toHebrewError(error, "טעינת הנתונים נכשלה. נסו לרענן את הדף.")}</p>
           ) : (
             <CrmDataTable
               columns={customerColumns}
               data={rows}
-              filterColumnId="email"
-              filterPlaceholder="סנן לפי דוא״ל..."
+              filterColumnId="name"
+              filterPlaceholder="סנן לפי שם לקוח..."
               columnLabels={customerColumnLabels}
               navigateRows="customer-detail"
             />

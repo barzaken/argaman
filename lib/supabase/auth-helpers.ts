@@ -9,6 +9,6 @@ export async function requireAuth(): Promise<AuthResult> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, message: "לא מחובר" };
+  if (!user) return { ok: false, message: "פג תוקף ההתחברות — רעננו את הדף והתחברו מחדש." };
   return { ok: true, supabase };
 }

@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { toHebrewError } from "@/lib/db/errors";
+import { optionalDateSchema } from "@/lib/db/validation";
+
 import type {
   DeliveryStatusDb,
   FulfillmentMethodDb,
@@ -12,6 +15,13 @@ import type {
 } from "@/lib/db/types";
 import { requireAuth } from "@/lib/supabase/auth-helpers";
 
+/** YYYY-MM-DD לפי שעון ישראל */
+function todayInIsrael(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jerusalem",
+  }).format(new Date());
+}
+
 export type ActionResult =
   | { ok: true; id?: string }
   | { ok: false; message: string };
@@ -20,7 +30,7 @@ export async function createDeliveryFromOrder(
   orderId: string
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = z.string().uuid().safeParse(orderId);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -30,7 +40,7 @@ export async function createDeliveryFromOrder(
     { p_order_id: parsed.data }
   );
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   const deliveryId = data as string;
 
@@ -49,10 +59,10 @@ const updateDeliverySchema = z.object({
     .enum(["cash", "bank_transfer", "check", "credit_card", "other"])
     .optional()
     .nullable(),
-  payment_due_date: z.string().optional().nullable(),
+  payment_due_date: optionalDateSchema,
   fulfillment_method: z.enum(["pickup", "shipping"]),
   shipping_address: z.string().optional().nullable(),
-  delivered_at: z.string().optional().nullable(),
+  delivered_at: optionalDateSchema,
   green_invoice_id: z.string().optional().nullable(),
   payment_status: z.enum(["unpaid", "paid"]),
   status: z.enum(["waiting_for_pickup", "in_transit", "delivered", "cancelled"]),
@@ -62,7 +72,7 @@ export async function updateDelivery(
   raw: z.infer<typeof updateDeliverySchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = updateDeliverySchema.safeParse(raw);
   if (!parsed.success) {
@@ -87,7 +97,7 @@ export async function updateDelivery(
     .single();
 
   if (fetchErr || !deliveryRow) {
-    return { ok: false, message: fetchErr?.message ?? "לא נמצא משלוח" };
+    return { ok: false, message: toHebrewError(fetchErr, "לא נמצא משלוח") };
   }
 
   const patch = {
@@ -98,7 +108,9 @@ export async function updateDelivery(
       parsed.data.fulfillment_method === "shipping"
         ? parsed.data.shipping_address?.trim() ?? null
         : null,
-    delivered_at: parsed.data.delivered_at || null,
+    delivered_at:
+      parsed.data.delivered_at ||
+      (parsed.data.status === "delivered" ? todayInIsrael() : null),
     green_invoice_id: parsed.data.green_invoice_id?.trim() || null,
     payment_status: parsed.data.payment_status as PaymentStatusDb,
     status: parsed.data.status as DeliveryStatusDb,
@@ -109,25 +121,33 @@ export async function updateDelivery(
     .update(patch)
     .eq("id", parsed.data.id);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   if (parsed.data.status === "delivered") {
-    await auth.supabase
+    const { error: orderErr } = await auth.supabase
       .from("orders")
       .update({ status: "completed" as OrderStatusDb })
       .eq("id", deliveryRow.order_id as string);
+    if (orderErr) {
+      return {
+        ok: false,
+        message: `התעודה נשמרה, אך עדכון סטטוס ההזמנה נכשל: ${toHebrewError(orderErr)}`,
+      };
+    }
   }
 
   revalidatePath("/dashboard/deliveries");
   revalidatePath(`/dashboard/deliveries/${parsed.data.id}`);
   revalidatePath("/dashboard/debtors");
   revalidatePath("/dashboard/orders");
+  revalidatePath("/dashboard/customers");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 
 export async function markDeliveryPaid(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
 
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -137,11 +157,12 @@ export async function markDeliveryPaid(id: string): Promise<ActionResult> {
     .update({ payment_status: "paid" as PaymentStatusDb })
     .eq("id", parsed.data);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/deliveries");
   revalidatePath(`/dashboard/deliveries/${parsed.data}`);
   revalidatePath("/dashboard/debtors");
+  revalidatePath("/dashboard/customers");
   revalidatePath("/dashboard");
   return { ok: true };
 }

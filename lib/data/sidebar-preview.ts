@@ -69,30 +69,31 @@ function mapDeliveryRow(
 export async function buildSidebarPreview(
   supabase: SupabaseClient
 ): Promise<SidebarPreviewData> {
-  const { data: available } = await supabase
-    .from("inventory_items_view")
-    .select(
-      "id, stone_name, color_hex, quantity_available, status, finish_level, piece_type"
-    )
-    .gt("quantity_available", 0)
-    .in("status", ["available", "in_transit"])
-    .order("created_at", { ascending: false })
-    .limit(12);
-
-  const { data: notAvailable } = await supabase
-    .from("inventory_items_view")
-    .select(
-      "id, stone_name, color_hex, quantity_available, status, finish_level, piece_type"
-    )
-    .lte("quantity_available", 0)
-    .order("created_at", { ascending: false })
-    .limit(12);
-
-  const { data: deliveries } = await supabase
-    .from("deliveries_view")
-    .select("id, delivery_number, customer_name")
-    .order("created_at", { ascending: false })
-    .limit(8);
+  const [{ data: available }, { data: notAvailable }, { data: deliveries }] =
+    await Promise.all([
+      supabase
+        .from("inventory_items_view")
+        .select(
+          "id, stone_name, color_hex, quantity_available, status, finish_level, piece_type"
+        )
+        .gt("quantity_available", 0)
+        .in("status", ["available", "in_transit"])
+        .order("created_at", { ascending: false })
+        .limit(12),
+      supabase
+        .from("inventory_items_view")
+        .select(
+          "id, stone_name, color_hex, quantity_available, status, finish_level, piece_type"
+        )
+        .lte("quantity_available", 0)
+        .order("created_at", { ascending: false })
+        .limit(12),
+      supabase
+        .from("deliveries_view")
+        .select("id, delivery_number, customer_name")
+        .order("created_at", { ascending: false })
+        .limit(8),
+    ]);
 
   return {
     inStock: (available ?? []).map((r) =>
