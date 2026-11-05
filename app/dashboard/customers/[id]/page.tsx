@@ -14,6 +14,7 @@ import { notFound } from "next/navigation";
 import { CustomerPriceOverrides } from "./customer-price-overrides";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MorningIssueLink } from "@/components/green-invoice/morning-issue-link";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { KpiCard } from "@/components/kpi-card";
 import { PaymentsPanel } from "@/components/payments/payments-panel";
@@ -181,6 +182,7 @@ export default async function CustomerDetailPage({
                   עריכה
                 </Link>
               </Button>
+              <MorningIssueLink params={{ customer: id }} />
             </div>
           </div>
 

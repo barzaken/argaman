@@ -16,6 +16,7 @@ import { notFound } from "next/navigation";
 
 import { AllocateRemaining } from "./allocate-remaining";
 import { DeletePaymentButton } from "./delete-payment-button";
+import { MorningIssueLink } from "@/components/green-invoice/morning-issue-link";
 import { GreenInvoiceReceiptButton } from "@/components/green-invoice/receipt-button";
 import { KpiCard } from "@/components/kpi-card";
 import { Button } from "@/components/ui/button";
@@ -304,16 +305,17 @@ export default async function PaymentDetailPage({
                 עדיין לא הופקה קבלה לתשלום זה.
               </p>
             )}
-            {!p.green_invoice_url ? (
-              <div>
+            <div className="flex flex-wrap items-center gap-2">
+              {!p.green_invoice_url ? (
                 <GreenInvoiceReceiptButton
                   paymentId={p.id}
                   hasReceipt={hasIssuedGiId(p.green_invoice_receipt_id)}
                   greenInvoiceUrl={p.green_invoice_url}
                   configured={configured}
                 />
-              </div>
-            ) : null}
+              ) : null}
+              <MorningIssueLink params={{ payment: p.id }} />
+            </div>
           </div>
         </div>
 

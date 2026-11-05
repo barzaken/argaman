@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { createDeliveryFromOrder } from "@/app/dashboard/deliveries/actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
+import { MorningIssueLink } from "@/components/green-invoice/morning-issue-link";
 import { Button } from "@/components/ui/button";
 import { actionCrashed } from "@/lib/action-client";
 import {
@@ -221,6 +222,7 @@ export function OrderDocument({
               <Download className="size-4" aria-hidden />
               {downloading ? "מוריד…" : "הורדת PDF"}
             </Button>
+            <MorningIssueLink params={{ order: orderId }} />
             <Button variant="outline" size="sm" asChild>
               <Link href={`/dashboard/orders/${orderId}/edit`}>עריכה</Link>
             </Button>

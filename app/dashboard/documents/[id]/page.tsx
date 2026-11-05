@@ -16,7 +16,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DocumentStatusBadge } from "@/components/documents/document-badges";
+import { DocumentLinksPanel } from "@/components/documents/document-links-panel";
 import { DocumentStatusActions } from "@/components/documents/document-status-actions";
+import { MorningIssueLink } from "@/components/green-invoice/morning-issue-link";
 import {
   formatFileSize,
   isBrowserRenderableImage,
@@ -68,6 +70,47 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
 function money(n: number | null, currency: string) {
   if (n == null) return null;
   return currency === "ILS" ? formatIlsDense(Number(n)) : `${Number(n).toLocaleString("he-IL")} ${currency}`;
+}
+
+/** סוג Morning של המסמך — מהשדה, ואם חסר לפי kind. */
+function morningTypeOf(d: DocumentViewRow): number | null {
+  if (d.green_invoice_type != null) return Number(d.green_invoice_type);
+  switch (d.kind) {
+    case "customer_invoice":
+      return 305;
+    case "customer_invoice_receipt":
+      return 320;
+    case "customer_receipt":
+      return 400;
+    case "customer_credit_note":
+      return 330;
+    default:
+      return null;
+  }
+}
+
+/**
+ * המסמך ההמשכי המתבקש במסמך Morning קיים (יקושר אליו ב-link):
+ * חשבונית מס / חשבון עסקה / אישור תשלום → קבלה; הצעה / הזמנה / תעודת משלוח → חשבונית מס.
+ * סוגים אחרים — בלי type (הטופס בוחר ברירת מחדל).
+ */
+function morningFollowUpType(giType: number | null, isAdmin: boolean): number | null {
+  switch (giType) {
+    case 305:
+    case 300:
+    case 20:
+      return 400;
+    case 10:
+    case 100:
+    case 200:
+      return 305;
+    case 600:
+      return isAdmin ? 610 : null;
+    case 405:
+      return isAdmin ? 410 : null;
+    default:
+      return null;
+  }
 }
 
 type NextStep = { label: string; description: string; href: string } | null;
@@ -145,6 +188,9 @@ export default async function DocumentDetailPage({
   const isPdf = d.mime_type === "application/pdf";
   const canRenderImage = isBrowserRenderableImage(d.mime_type);
   const next = nextStepFor(d);
+  const morningFollowUp = d.green_invoice_id
+    ? morningFollowUpType(morningTypeOf(d), !!me?.isAdmin)
+    : null;
 
   const related: { label: string; href: string }[] = [];
   if (d.customer_id) related.push({ label: `לקוח: ${d.customer_name ?? ""}`, href: `/dashboard/customers/${d.customer_id}` });
@@ -190,6 +236,17 @@ export default async function DocumentDetailPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DocumentStatusActions documentId={d.id} status={d.status} isAdmin={!!me?.isAdmin} />
+          {d.green_invoice_id ? (
+            <MorningIssueLink
+              className="shrink-0"
+              params={{
+                link: d.green_invoice_id,
+                type: morningFollowUp,
+                customer: d.customer_id,
+                supplier: d.customer_id ? null : d.supplier_id,
+              }}
+            />
+          ) : null}
           <Button variant="outline" size="sm" className="shrink-0 gap-1.5" asChild>
             <Link href={`/dashboard/documents/${d.id}/edit`}>
               <Pencil className="size-3.5" aria-hidden />
@@ -328,6 +385,10 @@ export default async function DocumentDetailPage({
               </li>
             ) : null}
           </ul>
+
+          <div className="border-t border-border p-4">
+            <DocumentLinksPanel documentId={d.id} isAdmin={!!me?.isAdmin} customerId={d.customer_id} />
+          </div>
 
           {d.notes ? (
             <>

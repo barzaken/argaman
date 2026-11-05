@@ -238,6 +238,7 @@ export const activityTableLabels: Record<string, string> = {
   payments: "תשלומים",
   payment_allocations: "הקצאות תשלום",
   expenses: "הוצאות",
+  document_links: "קישורי מסמכים",
 };
 
 // -----------------------------------------------------------------------------

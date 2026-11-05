@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DeliveryDocument } from "@/components/deliveries/delivery-document";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { GreenInvoiceInvoiceButton } from "@/components/green-invoice/invoice-button";
+import { MorningIssueLink } from "@/components/green-invoice/morning-issue-link";
 import { PaymentsPanel } from "@/components/payments/payments-panel";
 import { isGreenInvoiceConfigured } from "@/lib/green-invoice/config";
 import { hasIssuedGiId } from "@/lib/green-invoice/status";
@@ -82,14 +83,17 @@ export default async function DeliveryDetailPage({
       orderNotes={(order?.notes as string | null | undefined) ?? null}
       greenInvoiceUrl={greenInvoiceUrl}
       invoiceSlot={
-        <GreenInvoiceInvoiceButton
-          deliveryId={d.id}
-          hasInvoice={hasIssuedGiId(d.green_invoice_id)}
-          greenInvoiceUrl={greenInvoiceUrl}
-          customerEmail={d.customer_email}
-          configured={configured}
-          isAdmin={me?.isAdmin}
-        />
+        <>
+          <GreenInvoiceInvoiceButton
+            deliveryId={d.id}
+            hasInvoice={hasIssuedGiId(d.green_invoice_id)}
+            greenInvoiceUrl={greenInvoiceUrl}
+            customerEmail={d.customer_email}
+            configured={configured}
+            isAdmin={me?.isAdmin}
+          />
+          <MorningIssueLink params={{ delivery: d.id }} />
+        </>
       }
     >
       <div className="grid items-start gap-6 lg:grid-cols-2">

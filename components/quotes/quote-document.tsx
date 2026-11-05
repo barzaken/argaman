@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { Download, Printer } from "lucide-react";
 
+import { MorningIssueLink } from "@/components/green-invoice/morning-issue-link";
 import { Button } from "@/components/ui/button";
 import {
   downloadQuoteDocumentPdf,
@@ -145,6 +146,7 @@ export function QuoteDocument({
                 </Link>
               </Button>
             ) : null}
+            <MorningIssueLink params={{ quote: quoteId }} />
             {canEdit ? (
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/dashboard/quotes/${quoteId}/edit`}>עריכה</Link>

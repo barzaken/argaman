@@ -9,6 +9,7 @@ import { sumBy } from "@/components/expenses/expense-utils";
 import { KpiCard } from "@/components/kpi-card";
 import { SupplierActions } from "@/components/suppliers/supplier-actions";
 import { Badge } from "@/components/ui/badge";
+import { MorningIssueLink } from "@/components/green-invoice/morning-issue-link";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentCrmUser } from "@/lib/supabase/auth-helpers";
@@ -138,12 +139,15 @@ export default async function SupplierDetailPage({
               </div>
               <p className="text-muted-foreground text-xs">פרטי ספק</p>
             </div>
-            <SupplierActions
-              id={s.id}
-              name={s.name}
-              isActive={s.is_active}
-              isAdmin={Boolean(me?.isAdmin)}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <MorningIssueLink params={{ supplier: s.id }} />
+              <SupplierActions
+                id={s.id}
+                name={s.name}
+                isActive={s.is_active}
+                isAdmin={Boolean(me?.isAdmin)}
+              />
+            </div>
           </div>
 
           <div className="grid gap-4 p-4 sm:grid-cols-2">
