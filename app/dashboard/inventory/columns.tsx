@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 import { actionCrashed } from "@/lib/action-client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -44,6 +45,7 @@ export const inventoryColumnLabels: Record<string, string> = {
   select: "בחירה",
   color_hex: "צבע",
   stone_name: "שם האבן",
+  supplier_name: "ספק",
   finish_level: "רמת גימור",
   piece_type: "חלק",
   dimensions: "מידות",
@@ -172,6 +174,24 @@ export const inventoryColumns: ColumnDef<InventoryRow>[] = [
   {
     accessorKey: "stone_name",
     header: "שם האבן",
+  },
+  {
+    accessorKey: "supplier_name",
+    header: "ספק",
+    enableHiding: true,
+    cell: ({ row }) =>
+      row.original.supplier_id ? (
+        <span onClick={(e) => e.stopPropagation()}>
+          <Link
+            href={`/dashboard/suppliers/${row.original.supplier_id}`}
+            className="hover:underline underline-offset-4"
+          >
+            {row.original.supplier_name ?? "—"}
+          </Link>
+        </span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
   },
   {
     accessorKey: "finish_level",
