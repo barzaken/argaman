@@ -35,6 +35,7 @@ import {
   normalizeHex,
 } from "@/lib/db/format";
 import { cn } from "@/lib/utils";
+import { AliasesInput } from "../../aliases-input";
 
 const inventoryStatusLabels: Record<InventoryStatusDb, string> = {
   available: "זמין",
@@ -216,6 +217,8 @@ export function StoneEditForm({
     id: string;
     name: string;
     color_hex: string;
+    sku: string | null;
+    aliases: string[];
   };
   inventoryRows: StoneInventoryListRow[];
   orderRows: OrderViewRow[];
@@ -223,6 +226,8 @@ export function StoneEditForm({
   const router = useRouter();
   const [colorHex, setColorHex] = useState(stone.color_hex);
   const [stoneName, setStoneName] = useState(stone.name);
+  const [sku, setSku] = useState(stone.sku ?? "");
+  const [aliases, setAliases] = useState<string[]>(stone.aliases);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
@@ -235,6 +240,8 @@ export function StoneEditForm({
     fd.set("id", stone.id);
     fd.set("name", stoneName);
     fd.set("color_hex", normalizeHex(colorHex));
+    fd.set("sku", sku.trim());
+    fd.set("aliases", JSON.stringify(aliases));
     const res = await updateStone(fd).catch(actionCrashed);
     if (!res.ok) {
       setPending(false);
@@ -283,6 +290,22 @@ export function StoneEditForm({
                   />
                 </Field>
               </div>
+
+              <Field label="מק״ט">
+                <Input
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  dir="ltr"
+                  className="text-start"
+                  placeholder="לא חובה"
+                />
+              </Field>
+              <AliasesInput
+                label="שמות חלופיים"
+                value={aliases}
+                onChange={setAliases}
+                hint="השמות שספקים ולקוחות כותבים על המסמכים — האבן תימצא גם לפיהם."
+              />
 
               {error ? (
                 <p className="text-destructive text-sm" role="alert">

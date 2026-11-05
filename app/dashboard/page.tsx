@@ -40,13 +40,17 @@ export default async function DashboardPage() {
   const unpaidDeliveriesCount = Number(kpi?.unpaid_deliveries_count ?? 0);
   const receivablesTotal = Math.round(Number(kpi?.receivables_total ?? 0));
   const monthlyRevenue = Math.round(Number(kpi?.monthly_revenue ?? 0));
+  const monthlyPayments = Math.round(Number(kpi?.monthly_payments_total ?? 0));
+  const monthlyExpenses = Math.round(Number(kpi?.monthly_expenses_total ?? 0));
+  const pendingDocuments = Number(kpi?.pending_documents_count ?? 0);
 
   const catalog = (catalogStones ?? []) as StoneRow[];
   const todos = (todoItems ?? []) as OrderItemViewRow[];
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
-      <div className="grid border-b grid-cols-2 xl:grid-cols-4">
+      {/* 7 כרטיסים: שורה אחת כשיש מקום, אחרת עוטף לשורות מלאות */}
+      <div className="grid grid-cols-2 border-b sm:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))]">
         <KpiCard
           label="הזמנות פתוחות"
           value={openOrdersCount}
@@ -66,9 +70,32 @@ export default async function DashboardPage() {
         <KpiCard
           label="הכנסות החודש"
           value={monthlyRevenue}
+          icon="calendar"
+          valueType="currency"
+        />
+        <KpiCard
+          label="תשלומים החודש"
+          value={monthlyPayments}
           icon="circle-dollar-sign"
           valueType="currency"
         />
+        <KpiCard
+          label="הוצאות החודש"
+          value={monthlyExpenses}
+          icon="calendar-range"
+          valueType="currency"
+        />
+        <Link
+          href="/dashboard/documents?status=pending_review"
+          className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&>section]:h-full [&>section]:transition-colors hover:[&>section]:bg-muted/40"
+          aria-label={`מסמכים ממתינים לבדיקה: ${pendingDocuments}`}
+        >
+          <KpiCard
+            label="מסמכים לבדיקה"
+            value={pendingDocuments}
+            icon="file-warning"
+          />
+        </Link>
       </div>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-h-0 flex-[3] flex-col overflow-auto border-border lg:border-l">

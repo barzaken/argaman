@@ -16,6 +16,7 @@ import {
   SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   BookmarkPlus,
@@ -27,6 +28,8 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { crmRoleShortLabel, useCrmRole } from "@/components/role-context";
+import { cn } from "@/lib/utils";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -45,6 +48,11 @@ export function NavFooter({
     avatar: string;
   };
 }) {
+  const { role } = useCrmRole();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
+  const roleLabel = crmRoleShortLabel(role);
+
   async function handleLogout() {
     const sb = createClient();
     await sb.auth.signOut();
@@ -56,10 +64,13 @@ export function NavFooter({
       <SidebarMenu>
         <SidebarMenuItem>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="h-8 w-8 rounded-full">
+                  <Avatar
+                    className="h-8 w-8 shrink-0 cursor-pointer rounded-full"
+                    title={`${user.name} · ${roleLabel}`}
+                  >
                     <AvatarImage src={user.avatar} alt={user.name} />
                     <AvatarFallback className="rounded-full">
                       {initials(user.name)}
@@ -67,15 +78,22 @@ export function NavFooter({
                   </Avatar>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="m-2 w-56" align="start">
-                  <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+                  <DropdownMenuLabel className="flex flex-col gap-0.5">
+                    <span className="truncate">{user.email}</span>
+                    <span className="text-muted-foreground text-xs font-normal">
+                      {roleLabel}
+                    </span>
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="cursor-pointer justify-end">
                     פרופיל
                     <User data-icon="inline-start" aria-hidden />
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer justify-end">
-                    הגדרות
-                    <Settings data-icon="inline-start" aria-hidden />
+                  <DropdownMenuItem asChild className="cursor-pointer justify-end">
+                    <Link href="/dashboard/settings">
+                      הגדרות
+                      <Settings data-icon="inline-start" aria-hidden />
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="cursor-pointer justify-end "
                     onClick={(e) => {
@@ -88,6 +106,23 @@ export function NavFooter({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              {!isCollapsed ? (
+                <div className="flex min-w-0 flex-col leading-tight">
+                  <span className="truncate text-sm font-medium text-sidebar-foreground">
+                    {user.name}
+                  </span>
+                  <span
+                    className={cn(
+                      "truncate text-xs",
+                      role === "agent"
+                        ? "text-amber-700 dark:text-amber-400"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {roleLabel}
+                  </span>
+                </div>
+              ) : null}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

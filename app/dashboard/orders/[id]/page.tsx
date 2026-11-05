@@ -2,7 +2,11 @@ import { notFound } from "next/navigation";
 
 import { OrderDocument } from "@/components/orders/order-document";
 import { createClient } from "@/lib/supabase/server";
-import type { OrderItemViewRow, OrderViewRow } from "@/lib/db/types";
+import type {
+  OrderChargeRow,
+  OrderItemViewRow,
+  OrderViewRow,
+} from "@/lib/db/types";
 
 export default async function OrderDetailPage({
   params,
@@ -22,14 +26,25 @@ export default async function OrderDetailPage({
 
   const o = order as OrderViewRow;
 
-  const [{ data: items }, { data: customer }] = await Promise.all([
-    supabase.from("order_items_view").select("*").eq("order_id", id),
-    supabase
-      .from("customers")
-      .select("tax_id, address, phone")
-      .eq("id", o.customer_id)
-      .single(),
-  ]);
+  const [{ data: items }, { data: customer }, { data: charges }, { data: deliveries }] =
+    await Promise.all([
+      supabase.from("order_items_view").select("*").eq("order_id", id),
+      supabase
+        .from("customers")
+        .select("tax_id, address, phone")
+        .eq("id", o.customer_id)
+        .single(),
+      supabase
+        .from("order_charges")
+        .select("*")
+        .eq("order_id", id)
+        .order("sort_order"),
+      supabase
+        .from("deliveries")
+        .select("id, delivery_number")
+        .eq("order_id", id)
+        .limit(1),
+    ]);
 
   if (!customer) notFound();
 
@@ -71,6 +86,11 @@ export default async function OrderDetailPage({
       }}
       lines={lines}
       orderId={id}
+      charges={(charges ?? []) as OrderChargeRow[]}
+      delivery={
+        ((deliveries ?? [])[0] as { id: string; delivery_number: number } | undefined) ??
+        null
+      }
     />
   );
 }

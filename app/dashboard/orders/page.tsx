@@ -1,7 +1,7 @@
 import { CrmDataTable } from "@/components/crm/data-table";
 import { KpiCard } from "@/components/kpi-card";
 import { createClient } from "@/lib/supabase/server";
-import { startOfMonthInIsraelIso } from "@/lib/db/format";
+import { todayIsoInIsrael } from "@/lib/db/format";
 import { toHebrewError } from "@/lib/db/errors";
 
 import { ordersColumnLabels, ordersColumns } from "./columns";
@@ -10,8 +10,8 @@ import type { OrderViewRow } from "@/lib/db/types";
 export default async function OrdersPage() {
   const supabase = await createClient();
 
-  // תחילת החודש לפי שעון ישראל (השרת רץ ב-UTC)
-  const monthStartIso = startOfMonthInIsraelIso();
+  // תחילת החודש לפי שעון ישראל — לפי תאריך המסמך (כמו "הכנסות החודש")
+  const monthStart = `${todayIsoInIsrael().slice(0, 8)}01`;
 
   // כל השאילתות במקביל במקום אחת אחרי השנייה
   const [
@@ -41,7 +41,7 @@ export default async function OrdersPage() {
     supabase
       .from("orders")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", monthStartIso),
+      .gte("document_date", monthStart),
   ]);
 
   const list = (orders ?? []) as OrderViewRow[];
@@ -82,8 +82,8 @@ export default async function OrdersPage() {
             <CrmDataTable
               columns={ordersColumns}
               data={list}
-              filterColumnId="customer_name"
-              filterPlaceholder="סנן לפי לקוח..."
+              filterPlaceholder="חיפוש לפי לקוח, מספר, ח.פ, סכום…"
+              initialColumnVisibility={{ notes: false, signature_url: false }}
               columnLabels={ordersColumnLabels}
               navigateRows="order-detail"
               truncatedAt={400}

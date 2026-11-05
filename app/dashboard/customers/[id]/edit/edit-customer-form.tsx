@@ -105,6 +105,14 @@ export function EditCustomerForm({ customer }: { customer: CustomerRow }) {
                 defaultValue={customer.address ?? ""}
               />
             </Field>
+            <Field label="הערות">
+              <Textarea
+                name="notes"
+                rows={3}
+                placeholder="תנאי תשלום, איש קשר, הערות פנימיות…"
+                defaultValue={customer.notes ?? ""}
+              />
+            </Field>
             {error ? (
               <p className="text-destructive text-sm" role="alert">
                 {error}

@@ -29,6 +29,11 @@ const customerSchema = z.object({
       typeof v === "string" && v.trim() === "" ? undefined : v,
     z.string().optional()
   ),
+  notes: z.preprocess(
+    (v) =>
+      typeof v === "string" && v.trim() === "" ? undefined : v,
+    z.string().max(4000, "ההערות ארוכות מדי").optional()
+  ),
 });
 
 export async function createCustomer(formData: FormData): Promise<ActionResult> {
@@ -41,6 +46,7 @@ export async function createCustomer(formData: FormData): Promise<ActionResult> 
     email: formData.get("email"),
     phone: formData.get("phone"),
     address: formData.get("address"),
+    notes: formData.get("notes") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -56,6 +62,7 @@ export async function createCustomer(formData: FormData): Promise<ActionResult> 
     email: parsed.data.email ?? null,
     phone: parsed.data.phone?.trim() || null,
     address: parsed.data.address?.trim() || null,
+    notes: parsed.data.notes?.trim() || null,
     is_active: true,
   });
 
@@ -81,6 +88,7 @@ export async function updateCustomer(formData: FormData): Promise<ActionResult> 
     email: formData.get("email"),
     phone: formData.get("phone"),
     address: formData.get("address"),
+    notes: formData.get("notes") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -98,6 +106,7 @@ export async function updateCustomer(formData: FormData): Promise<ActionResult> 
       email: parsed.data.email ?? null,
       phone: parsed.data.phone?.trim() || null,
       address: parsed.data.address?.trim() || null,
+      notes: parsed.data.notes?.trim() || null,
     })
     .eq("id", parsed.data.id);
 

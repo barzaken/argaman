@@ -1,21 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, Truck } from "lucide-react";
+import { toast } from "sonner";
 
+import { createDeliveryFromOrder } from "@/app/dashboard/deliveries/actions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ErrorDialog } from "@/components/error-dialog";
 import { Button } from "@/components/ui/button";
+import { actionCrashed } from "@/lib/action-client";
 import {
   downloadOrderDocumentPdf,
   printOrderDocument,
 } from "@/lib/orders/document-export";
 import type { OrderItemViewRow, OrderViewRow, PriorityDb } from "@/lib/db/types";
-import { formatIls, formatIssueDate } from "@/lib/db/format";
+import { formatDateShort, formatIls, formatIssueDate } from "@/lib/db/format";
+import { orderChargeKindLabels } from "@/lib/db/labels";
 
 import {
   OrderDocumentSheet,
   type OrderDocumentCustomer,
 } from "./order-document-sheet";
+import type { DocumentChargeLine } from "./order-charge-rows";
 
 export type { OrderDocumentCustomer };
 
@@ -49,12 +57,33 @@ export function OrderDocument({
   customer,
   lines,
   orderId,
+  charges = [],
+  delivery = null,
 }: {
   order: OrderViewRow;
   customer: OrderDocumentCustomer;
   lines: OrderItemViewRow[];
   orderId: string;
+  charges?: DocumentChargeLine[];
+  /** תעודת המשלוח של ההזמנה, אם כבר הופקה */
+  delivery?: { id: string; delivery_number: number } | null;
 }) {
+  const router = useRouter();
+  const [deliveryConfirmOpen, setDeliveryConfirmOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function handleCreateDelivery() {
+    const res = await createDeliveryFromOrder(orderId).catch(actionCrashed);
+    if (!res.ok) {
+      setActionError(res.message);
+      return;
+    }
+    toast.success("תעודת המשלוח נוצרה");
+    router.push(`/dashboard/deliveries/${res.id}`);
+  }
+
+  const hasDelivery = delivery != null || order.has_delivery;
+  const cancelled = order.status === "cancelled";
   const sheetRef = useRef<HTMLDivElement>(null);
   const [printing, setPrinting] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -98,10 +127,18 @@ export function OrderDocument({
             </h2>
             <p className="text-muted-foreground text-sm">{order.customer_name}</p>
             <p className="text-muted-foreground text-sm">
-              תאריך יצירת הזמנה:{" "}
+              תאריך המסמך:{" "}
               <span className="tabular-nums text-foreground">
-                {formatIssueDate(order.created_at)}
+                {formatDateShort(order.document_date)}
               </span>
+              {order.document_date &&
+              formatDateShort(order.document_date) !==
+                formatDateShort(order.created_at) ? (
+                <span>
+                  {" "}
+                  · נוצרה במערכת: {formatIssueDate(order.created_at)}
+                </span>
+              ) : null}
             </p>
             <p className="text-muted-foreground text-sm">
               סטטוס: {orderStatusLabels[order.status]} · תעדוף:{" "}
@@ -119,8 +156,48 @@ export function OrderDocument({
                 {formatIls(order.total)}
               </span>
             </p>
+            {charges.length > 0 ? (
+              <p className="text-muted-foreground text-sm">
+                חיובים נוספים:{" "}
+                {charges
+                  .map(
+                    (c) =>
+                      `${orderChargeKindLabels[c.kind]} ${formatIls(Number(c.amount))}`
+                  )
+                  .join(" · ")}{" "}
+                (לפני מע״מ)
+              </p>
+            ) : null}
+            {delivery ? (
+              <p className="text-sm">
+                <Link
+                  href={`/dashboard/deliveries/${delivery.id}`}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  תעודת משלוח #{delivery.delivery_number}
+                </Link>
+              </p>
+            ) : null}
+            {order.notes?.trim() ? (
+              <p className="mt-2 max-w-xl whitespace-pre-line rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+                <span className="text-muted-foreground">הערות: </span>
+                {order.notes}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
+            {hasDelivery ? null : (
+              <Button
+                size="sm"
+                type="button"
+                disabled={cancelled}
+                title={cancelled ? "ההזמנה בוטלה" : undefined}
+                onClick={() => setDeliveryConfirmOpen(true)}
+              >
+                <Truck data-icon="inline-start" aria-hidden />
+                צור תעודת משלוח
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -162,9 +239,20 @@ export function OrderDocument({
             order={order}
             customer={customer}
             lines={lines}
+            charges={charges}
           />
         </div>
       </div>
+      <ConfirmDialog
+        open={deliveryConfirmOpen}
+        onOpenChange={setDeliveryConfirmOpen}
+        title={`תעודת משלוח להזמנה #${order.order_number}`}
+        description="ליצור תעודת משלוח? הכמויות יועברו מ״מוזמן״ ל״סופק״ במלאי וכל פריטי ההזמנה יסומנו כהושלמו. אחרי ההפקה לא ניתן לשנות את החיובים הנוספים."
+        confirmLabel="יצירת תעודה"
+        pendingLabel="יוצר…"
+        onConfirm={handleCreateDelivery}
+      />
+      <ErrorDialog message={actionError} onClose={() => setActionError(null)} />
     </div>
   );
 }

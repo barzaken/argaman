@@ -88,6 +88,13 @@ export default function NewCustomerPage() {
             <Field label="כתובת">
               <Textarea name="address" rows={3} />
             </Field>
+            <Field label="הערות">
+              <Textarea
+                name="notes"
+                rows={3}
+                placeholder="תנאי תשלום, איש קשר, הערות פנימיות…"
+              />
+            </Field>
             {error ? (
               <p className="text-destructive text-sm" role="alert">
                 {error}

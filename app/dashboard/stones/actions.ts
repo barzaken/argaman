@@ -17,7 +17,39 @@ const stoneSchema = z.object({
   color_hex: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "צבע לא תקין"),
+  /** מק״ט — ריק = null (ייחודי כשמוגדר) */
+  sku: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+    z.string().trim().max(64, "מק״ט ארוך מדי").nullable().optional()
+  ),
+  /** שמות חלופיים (JSON של מערך מחרוזות) */
+  aliases: z
+    .array(z.string().trim().min(1).max(120, "שם חלופי ארוך מדי"))
+    .max(50, "יותר מדי שמות חלופיים")
+    .optional(),
 });
+
+/** מערך שמות חלופיים מ-FormData (JSON) — מנוקה ובלי כפילויות */
+function aliasesFromForm(formData: FormData): string[] | undefined {
+  const raw = formData.get("aliases");
+  if (typeof raw !== "string") return undefined;
+  try {
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr)) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const v of arr) {
+      if (typeof v !== "string") continue;
+      const t = v.replace(/\s+/g, " ").trim();
+      if (!t || seen.has(t.toLowerCase())) continue;
+      seen.add(t.toLowerCase());
+      out.push(t);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
 
 export async function createStone(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
@@ -26,6 +58,8 @@ export async function createStone(formData: FormData): Promise<ActionResult> {
   const parsed = stoneSchema.safeParse({
     name: formData.get("name"),
     color_hex: normalizeHex(String(formData.get("color_hex") ?? "#000000")),
+    sku: formData.get("sku") ?? undefined,
+    aliases: aliasesFromForm(formData),
   });
   if (!parsed.success) {
     return {
@@ -37,6 +71,8 @@ export async function createStone(formData: FormData): Promise<ActionResult> {
   const { error } = await auth.supabase.from("stones").insert({
     name: parsed.data.name.trim(),
     color_hex: parsed.data.color_hex,
+    sku: parsed.data.sku ?? null,
+    aliases: parsed.data.aliases ?? [],
     is_active: true,
   });
 
@@ -59,6 +95,8 @@ export async function updateStone(formData: FormData): Promise<ActionResult> {
     id: formData.get("id"),
     name: formData.get("name"),
     color_hex: normalizeHex(String(formData.get("color_hex") ?? "#000000")),
+    sku: formData.get("sku") ?? undefined,
+    aliases: aliasesFromForm(formData),
   });
   if (!parsed.success) {
     return {
@@ -72,6 +110,9 @@ export async function updateStone(formData: FormData): Promise<ActionResult> {
     .update({
       name: parsed.data.name.trim(),
       color_hex: parsed.data.color_hex,
+      // לא נשלחו (טופס ישן) = לא נוגעים
+      ...(parsed.data.sku !== undefined ? { sku: parsed.data.sku } : {}),
+      ...(parsed.data.aliases !== undefined ? { aliases: parsed.data.aliases } : {}),
     })
     .eq("id", parsed.data.id);
 

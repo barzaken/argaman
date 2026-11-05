@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 
 import type {
   ColumnDef,
-  ColumnFiltersState,
   OnChangeFn,
+  RowData,
   RowSelectionState,
   SortingState,
   VisibilityState,
@@ -14,11 +14,10 @@ import type {
 import {
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +35,94 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDateShort } from "@/lib/db/format";
 import { cn } from "@/lib/utils";
+
+declare module "@tanstack/react-table" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- חתימה מחייבת של TanStack
+  interface ColumnMeta<TData extends RowData, TValue> {
+    /**
+     * טקסט נוסף לחיפוש הכללי בעמודה (למשל תווית עברית של סטטוס,
+     * או ערך לעמודה בלי accessor). מצטרף לערך הגולמי של העמודה.
+     */
+    searchValue?: (row: TData) => string | number | null | undefined;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * חיפוש כללי: כל העמודות הגלויות (מחרוזות / מספרים / מערכים), בלי תלות
+ * בעמודה אחת. "1002" מוצא הזמנה #1002, "05.11.2026" מוצא תאריך 2026-11-05,
+ * כמה מילים = כולן חייבות להופיע (בכל עמודה שהיא).
+ * ------------------------------------------------------------------------- */
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}/;
+
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, "")
+    .replace(/[״”“]/g, '"')
+    .replace(/[׳’‘]/g, "'")
+    .replace(/[#₪,]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function pushSearchValue(out: string[], value: unknown) {
+  if (value == null || value === "") return;
+  if (Array.isArray(value)) {
+    for (const v of value) pushSearchValue(out, v);
+    return;
+  }
+  if (typeof value === "number") {
+    if (Number.isFinite(value)) out.push(String(value));
+    return;
+  }
+  if (typeof value === "string") {
+    out.push(value);
+    if (ISO_DATE_RE.test(value)) out.push(formatDateShort(value));
+    return;
+  }
+  if (typeof value === "boolean") return;
+}
+
+function readPath(row: unknown, path: string): unknown {
+  let cur: unknown = row;
+  for (const part of path.split(".")) {
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[part];
+  }
+  return cur;
+}
+
+function columnIdOf<TData, TValue>(def: ColumnDef<TData, TValue>): string | undefined {
+  if (def.id) return def.id;
+  const key = (def as { accessorKey?: unknown }).accessorKey;
+  return typeof key === "string" ? key.replace(/\./g, "_") : undefined;
+}
+
+function buildRowHaystack<TData, TValue>(
+  row: TData,
+  index: number,
+  columns: ColumnDef<TData, TValue>[],
+  visibility: VisibilityState,
+  extraKeys: string[]
+): string {
+  const parts: string[] = [];
+  for (const def of columns) {
+    const id = columnIdOf(def);
+    if (id && visibility[id] === false) continue;
+    const accessorFn = (def as { accessorFn?: (r: TData, i: number) => unknown })
+      .accessorFn;
+    const accessorKey = (def as { accessorKey?: unknown }).accessorKey;
+    if (accessorFn) pushSearchValue(parts, accessorFn(row, index));
+    else if (typeof accessorKey === "string")
+      pushSearchValue(parts, readPath(row, accessorKey));
+    if (def.meta?.searchValue) pushSearchValue(parts, def.meta.searchValue(row));
+  }
+  for (const key of extraKeys) pushSearchValue(parts, readPath(row, key));
+  return normalizeSearchText(parts.join(" \u0001 "));
+}
 
 export type CrmRowNavigateKind =
   | "inventory-edit"
@@ -66,8 +152,17 @@ export type CrmDataTableProps<
 > = {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  /**
+   * @deprecated החיפוש עובר עכשיו על כל העמודות הגלויות — הפרופ נשאר
+   * לתאימות לאחור ואין לו השפעה.
+   */
   filterColumnId?: string;
+  /** טקסט עזר בתיבת החיפוש, למשל "חיפוש לפי לקוח, מספר, ח.פ…" */
   filterPlaceholder?: string;
+  /** שדות נוספים בשורה שנכללים בחיפוש גם בלי עמודה (למשל customer_tax_id) */
+  searchKeys?: string[];
+  /** עמודות מוסתרות כברירת מחדל ({ notes: false }) — ניתן להציג מ"עמודות" */
+  initialColumnVisibility?: VisibilityState;
   columnLabels?: Record<string, string>;
   /** Opens detail/edit on row click (interactive cells use stopPropagation). */
   navigateRows?: CrmRowNavigateKind;
@@ -86,8 +181,9 @@ export function CrmDataTable<
 >({
   columns,
   data,
-  filterColumnId,
-  filterPlaceholder = "סנן…",
+  filterPlaceholder = "חיפוש…",
+  searchKeys,
+  initialColumnVisibility,
   columnLabels = {},
   navigateRows,
   enableRowSelection = false,
@@ -98,12 +194,24 @@ export function CrmDataTable<
   truncatedAt,
 }: CrmDataTableProps<TData, TValue>) {
   const router = useRouter();
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  );
+  const [query, setQuery] = React.useState("");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+    React.useState<VisibilityState>(() => initialColumnVisibility ?? {});
+  const deferredQuery = React.useDeferredValue(query);
+
+  const extraKeysSig = (searchKeys ?? []).join("|");
+  const filteredData = React.useMemo(() => {
+    const tokens = normalizeSearchText(deferredQuery)
+      .split(" ")
+      .filter(Boolean);
+    if (tokens.length === 0) return data;
+    const extraKeys = extraKeysSig ? extraKeysSig.split("|") : [];
+    return data.filter((row, index) => {
+      const hay = buildRowHaystack(row, index, columns, columnVisibility, extraKeys);
+      return tokens.every((t) => hay.includes(t));
+    });
+  }, [data, columns, columnVisibility, deferredQuery, extraKeysSig]);
   const [internalRowSelection, setInternalRowSelection] =
     React.useState<RowSelectionState>({});
 
@@ -113,11 +221,9 @@ export function CrmDataTable<
   /* TanStack Table returns unstable function refs; React Compiler skips memoization here. */
   // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
@@ -131,31 +237,52 @@ export function CrmDataTable<
       : { enableRowSelection: false }),
     state: {
       sorting,
-      columnFilters,
       columnVisibility,
       ...(enableRowSelection ? { rowSelection: selectionState } : {}),
     },
   });
 
   const visibleColumnCount = table.getVisibleLeafColumns().length;
-  const filterCol =
-    filterColumnId != null ? table.getColumn(filterColumnId) : undefined;
   const selectedCount = enableRowSelection
-    ? table.getFilteredSelectedRowModel().rows.length
+    ? table.getSelectedRowModel().rows.length
     : 0;
+  const shownCount = filteredData.length;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2 py-1">
         <div className="flex flex-wrap items-center gap-2">
-          {filterCol ? (
-            <Input
-              placeholder={filterPlaceholder}
-              value={(filterCol.getFilterValue() as string) ?? ""}
-              onChange={(event) => filterCol.setFilterValue(event.target.value)}
-              className="max-w-sm"
+          <div className="relative w-full max-w-sm sm:w-80">
+            <Search
+              className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
             />
-          ) : null}
+            <Input
+              type="search"
+              role="searchbox"
+              aria-label="חיפוש בטבלה"
+              placeholder={filterPlaceholder}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && query) {
+                  event.preventDefault();
+                  setQuery("");
+                }
+              }}
+              className="ps-8 pe-8 [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute end-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="ניקוי החיפוש"
+              >
+                <X className="size-3.5" aria-hidden />
+              </button>
+            ) : null}
+          </div>
           {enableRowSelection && selectedCount > 0 && selectionActions
             ? selectionActions
             : null}
@@ -293,7 +420,7 @@ export function CrmDataTable<
                   colSpan={visibleColumnCount || columns.length}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  {data.length === 0 ? "אין עדיין רשומות." : "אין תוצאות לסינון."}
+                  {data.length === 0 ? "אין עדיין רשומות." : "אין תוצאות לחיפוש."}
                 </TableCell>
               </TableRow>
             )}
@@ -302,9 +429,9 @@ export function CrmDataTable<
       </div>
       {data.length > 0 ? (
         <p className="text-muted-foreground text-xs tabular-nums">
-          {table.getFilteredRowModel().rows.length === data.length
+          {shownCount === data.length
             ? `${data.length} רשומות`
-            : `${table.getFilteredRowModel().rows.length} מתוך ${data.length} רשומות`}
+            : `${shownCount} מתוך ${data.length} רשומות`}
           {truncatedAt && data.length >= truncatedAt
             ? ` · מוצגות ${truncatedAt} האחרונות בלבד`
             : ""}

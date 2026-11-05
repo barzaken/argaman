@@ -1,5 +1,6 @@
 import { OrderForm } from "./order-form";
 import { createClient } from "@/lib/supabase/server";
+import { todayIsoInIsrael } from "@/lib/db/format";
 import type { CustomerStonePriceRow } from "@/lib/db/types";
 import type { CustomerRow } from "@/lib/db/types";
 import type { InventoryItemViewRow } from "@/lib/db/types";
@@ -39,6 +40,7 @@ export default async function NewOrderPage({
       inventory={(inventory ?? []) as InventoryItemViewRow[]}
       overrides={(overrides ?? []) as CustomerStonePriceRow[]}
       initialInventoryIds={initialInventoryIds}
+      today={todayIsoInIsrael()}
     />
   );
 }

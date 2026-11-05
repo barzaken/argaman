@@ -24,8 +24,8 @@ export default async function CustomersPage() {
         .order("name"),
       supabase.from("orders").select("customer_id"),
       supabase
-        .from("deliveries")
-        .select("customer_id, total")
+        .from("deliveries_view")
+        .select("customer_id, total, balance")
         .eq("payment_status", "unpaid")
         .neq("status", "cancelled"),
     ]);
@@ -39,7 +39,8 @@ export default async function CustomersPage() {
   const unpaidMap = new Map<string, number>();
   for (const d of unpaidDeliveries ?? []) {
     const cid = d.customer_id as string;
-    const t = Number(d.total);
+    // יתרה בפועל (total − amount_paid) — תשלומים חלקיים כבר מקוזזים
+    const t = Number(d.balance ?? d.total);
     unpaidMap.set(cid, (unpaidMap.get(cid) ?? 0) + t);
   }
 
@@ -86,8 +87,8 @@ export default async function CustomersPage() {
             <CrmDataTable
               columns={customerColumns}
               data={rows}
-              filterColumnId="name"
-              filterPlaceholder="סנן לפי שם לקוח..."
+              filterPlaceholder="חיפוש לפי שם, ח.פ, טלפון, דוא״ל…"
+              initialColumnVisibility={{ notes: false }}
               columnLabels={customerColumnLabels}
               navigateRows="customer-detail"
             />

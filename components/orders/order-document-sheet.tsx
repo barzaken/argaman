@@ -15,6 +15,12 @@ import {
 } from "@/lib/db/format";
 import { buildStoneItemNumberMap } from "@/lib/orders/stone-item-numbers";
 
+import {
+  DocumentNotes,
+  OrderChargeRows,
+  type DocumentChargeLine,
+} from "./order-charge-rows";
+
 function lineAreaM2(ln: OrderItemViewRow): number {
   return Number(ln.length_m) * Number(ln.width_m) * Number(ln.quantity);
 }
@@ -49,8 +55,9 @@ export const OrderDocumentSheet = forwardRef<
     order: OrderViewRow;
     customer: OrderDocumentCustomer;
     lines: OrderItemViewRow[];
+    charges?: DocumentChargeLine[];
   }
->(function OrderDocumentSheet({ order, customer, lines }, ref) {
+>(function OrderDocumentSheet({ order, customer, lines, charges = [] }, ref) {
   const totalVolumeM3 = lines
     .filter((ln) => (ln.inventory_pricing_unit ?? "m3") !== "m2")
     .reduce((sum, ln) => sum + Number(ln.volume_m3), 0);
@@ -120,9 +127,9 @@ export const OrderDocumentSheet = forwardRef<
             </span>
           </div>
           <div className="ods-meta-card">
-            <span className="ods-meta-label">תאריך הנפקה</span>
+            <span className="ods-meta-label">תאריך המסמך</span>
             <span className="ods-meta-value">
-              {formatIssueDate(order.created_at)}
+              {formatIssueDate(order.document_date ?? order.created_at)}
             </span>
           </div>
           <div className="ods-meta-card">
@@ -189,9 +196,16 @@ export const OrderDocumentSheet = forwardRef<
                   </tr>
                 );
               })}
+              <OrderChargeRows
+                charges={charges}
+                descriptionSpan={5}
+                trailingCells={1}
+              />
             </tbody>
           </table>
         </div>
+
+        <DocumentNotes notes={order.notes} />
 
         <div className="ods-totals">
           {totalVolumeM3 > 0 ? (

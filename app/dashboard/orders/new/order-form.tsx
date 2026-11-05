@@ -23,6 +23,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  OrderChargesEditor,
+  chargePayloads,
+  chargesTotalExVat,
+  validateChargeDrafts,
+  type ChargeDraft,
+} from "@/components/orders/order-charges-editor";
 import { cn } from "@/lib/utils";
 import type {
   CustomerRow,
@@ -275,7 +283,10 @@ export function OrderForm({
   inventory,
   overrides,
   initialInventoryIds = [],
+  today,
 }: {
+  /** היום (YYYY-MM-DD, שעון ישראל) — ברירת המחדל לתאריך המסמך */
+  today: string;
   customers: CustomerRow[];
   stones: StoneRow[];
   inventory: InventoryItemViewRow[];
@@ -290,6 +301,9 @@ export function OrderForm({
   const [supplyDue, setSupplyDue] = useState("");
   const [signatureUrl, setSignatureUrl] = useState("");
   const [vatIncluded, setVatIncluded] = useState(false);
+  const [documentDate, setDocumentDate] = useState(today);
+  const [notes, setNotes] = useState("");
+  const [charges, setCharges] = useState<ChargeDraft[]>([]);
   // זריעה מראש משורות מלאי שנבחרו (?inventory=...) — בלי effect, בלי הבהוב
   const [lines, setLines] = useState<Line[]>(() => {
     const seeded = initialInventoryIds
@@ -300,7 +314,13 @@ export function OrderForm({
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  useUnsavedChangesWarning(!pending && (!!customerId || lines.some(isLineTouched)));
+  useUnsavedChangesWarning(
+    !pending &&
+      (!!customerId ||
+        lines.some(isLineTouched) ||
+        charges.length > 0 ||
+        !!notes.trim())
+  );
 
   const stoneGroups = useMemo(() => groupLinesByStone(lines), [lines]);
 
@@ -325,6 +345,15 @@ export function OrderForm({
         if (!ln.price_per_m3.trim() || Number.isNaN(p)) return ln;
         const converted = next ? p * factor : p / factor;
         return { ...ln, price_per_m3: String(roundMoney(converted)) };
+      })
+    );
+    // גם סכומי החיובים הנוספים מוצגים לפי אותו דגל
+    setCharges((prev) =>
+      prev.map((c) => {
+        const a = parseFloat(normalizeDecimalInput(c.amount));
+        if (!c.amount.trim() || Number.isNaN(a)) return c;
+        const converted = next ? a * factor : a / factor;
+        return { ...c, amount: String(roundMoney(converted)) };
       })
     );
   }
@@ -544,10 +573,12 @@ export function OrderForm({
       if (vol != null) totalVolumeM3 += vol;
       if (lineSub != null) subtotalEx += lineSub;
     }
+    const chargesEx = chargesTotalExVat(charges, vatIncluded, VAT_RATE);
+    subtotalEx = roundMoney(subtotalEx + chargesEx);
     const vat = computeVatAmount(subtotalEx, VAT_RATE);
     const total = computeTotalWithVat(subtotalEx, VAT_RATE);
-    return { subtotalEx, vat, total, totalVolumeM3 };
-  }, [lines, vatIncluded]);
+    return { subtotalEx, vat, total, totalVolumeM3, chargesEx };
+  }, [lines, vatIncluded, charges]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -556,9 +587,17 @@ export function OrderForm({
       return;
     }
 
-    const validationError = validateLines(lines);
+    const validationError = validateLines(lines) ?? validateChargeDrafts(charges);
     if (validationError) {
       setError(validationError);
+      return;
+    }
+    if (totalsPreview.subtotalEx < 0) {
+      setError("ההנחה גדולה מסכום ההזמנה");
+      return;
+    }
+    if (!documentDate) {
+      setError("נא לבחור תאריך מסמך");
       return;
     }
 
@@ -585,6 +624,9 @@ export function OrderForm({
 
     const res = await createOrder({
       customer_id: customerId,
+      document_date: documentDate,
+      notes: notes.trim() || null,
+      charges: chargePayloads(charges),
       priority,
       supply_due_date: supplyDue || null,
       signature_url: signatureUrl.trim() || null,
@@ -665,6 +707,15 @@ export function OrderForm({
                   onChange={(e) => setSupplyDue(e.target.value)}
                 />
               </Field>
+              <Field label="תאריך המסמך">
+                <Input
+                  type="date"
+                  dir="ltr"
+                  value={documentDate}
+                  onChange={(e) => setDocumentDate(e.target.value)}
+                  required
+                />
+              </Field>
               <Field label="קישור לחתימה">
                 <Input
                   dir="ltr"
@@ -673,7 +724,19 @@ export function OrderForm({
                   placeholder="https://…"
                 />
               </Field>
+              <Field label="הערות" className="sm:col-span-2">
+                <Textarea
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="הערות להזמנה (יופיעו בתעודה)"
+                />
+              </Field>
             </div>
+            <p className="-mt-3 text-muted-foreground text-xs">
+              תאריך המסמך קובע לאיזה חודש ההזמנה נספרת ב״הכנסות החודש״ (ברירת
+              מחדל: היום).
+            </p>
 
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
@@ -1000,6 +1063,15 @@ export function OrderForm({
               })}
             </div>
 
+            <Separator />
+
+            <OrderChargesEditor
+              charges={charges}
+              onChange={setCharges}
+              vatIncluded={vatIncluded}
+              vatRate={VAT_RATE}
+            />
+
             <div className="rounded-lg border border-border bg-muted/30 p-4">
               <div className="flex flex-col gap-1 text-sm">
                 <div className="flex justify-between gap-4">
@@ -1010,6 +1082,16 @@ export function OrderForm({
                       : "—"}
                   </span>
                 </div>
+                {totalsPreview.chargesEx !== 0 ? (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">
+                      מתוכם חיובים נוספים / הנחות
+                    </span>
+                    <span className="tabular-nums font-medium">
+                      {formatIls(totalsPreview.chargesEx)}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">סכום לפני מע״מ</span>
                   <span className="tabular-nums font-medium">

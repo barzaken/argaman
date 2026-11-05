@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
+import { useCrmRole } from "@/components/role-context";
 
 import type { OrderViewRow } from "@/lib/db/types";
 import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
@@ -41,17 +42,20 @@ function PriorityBadge({ p }: { p: OrderViewRow["priority"] }) {
 
 export const ordersColumnLabels: Record<string, string> = {
   order_number: "מס׳ הזמנה",
+  document_date: "תאריך המסמך",
   customer_name: "לקוח",
   priority: "תעדוף",
   status: "סטטוס",
   supply_due_date: "יעד אספקה",
   totals: "סכום",
   signature_url: "חתימה",
+  notes: "הערות",
   actions: "פעולות",
 };
 
 function OrderActions({ order }: { order: OrderViewRow }) {
   const router = useRouter();
+  const { isAdmin } = useCrmRole();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deliveryConfirmOpen, setDeliveryConfirmOpen] = useState(false);
@@ -100,14 +104,16 @@ function OrderActions({ order }: { order: OrderViewRow }) {
       >
         צור תעודת משלוח
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        type="button"
-        onClick={() => setDeleteConfirmOpen(true)}
-      >
-        מחיקה
-      </Button>
+      {isAdmin ? (
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onClick={() => setDeleteConfirmOpen(true)}
+        >
+          מחיקה
+        </Button>
+      ) : null}
       <ConfirmDialog
         open={deliveryConfirmOpen}
         onOpenChange={setDeliveryConfirmOpen}
@@ -146,17 +152,29 @@ export const ordersColumns: ColumnDef<OrderViewRow>[] = [
     ),
   },
   {
+    accessorKey: "document_date",
+    header: "תאריך",
+    cell: ({ row }) => (
+      <span className="tabular-nums">
+        {formatDateShort(row.original.document_date ?? row.original.created_at)}
+      </span>
+    ),
+  },
+  {
     accessorKey: "customer_name",
     header: "לקוח",
+    meta: { searchValue: (o) => o.customer_tax_id },
   },
   {
     accessorKey: "priority",
     header: "תעדוף",
+    meta: { searchValue: (o) => priorityLabels[o.priority] },
     cell: ({ row }) => <PriorityBadge p={row.original.priority} />,
   },
   {
     accessorKey: "status",
     header: "סטטוס",
+    meta: { searchValue: (o) => statusLabels[o.status] },
     cell: ({ row }) => (
       <span className="text-sm">{statusLabels[row.original.status]}</span>
     ),
@@ -182,6 +200,7 @@ export const ordersColumns: ColumnDef<OrderViewRow>[] = [
   },
   {
     id: "totals",
+    accessorFn: (o) => Number(o.total),
     header: () => <div className="text-end">סכום</div>,
     cell: ({ row }) => (
       <div className="flex flex-col items-end gap-0.5">
@@ -190,6 +209,9 @@ export const ordersColumns: ColumnDef<OrderViewRow>[] = [
         </span>
         <span className="text-muted-foreground text-xs">
           {row.original.vat_included ? "כולל מע״מ בפריטים" : "לפני מע״מ"}
+          {Number(row.original.charges_total ?? 0) !== 0
+            ? ` · חיובים ${formatIls(Number(row.original.charges_total))}`
+            : ""}
         </span>
       </div>
     ),
@@ -208,6 +230,19 @@ export const ordersColumns: ColumnDef<OrderViewRow>[] = [
         >
           קישור
         </Link>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+  },
+  {
+    accessorKey: "notes",
+    header: "הערות",
+    enableSorting: false,
+    cell: ({ row }) =>
+      row.original.notes ? (
+        <span className="line-clamp-2 max-w-[16rem] text-sm text-muted-foreground">
+          {row.original.notes}
+        </span>
       ) : (
         <span className="text-muted-foreground">—</span>
       ),
