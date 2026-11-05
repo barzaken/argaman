@@ -13,7 +13,7 @@ import type {
   PriorityDb,
   QuotePricingUnitDb,
 } from "@/lib/db/types";
-import { requireAuth } from "@/lib/supabase/auth-helpers";
+import { requireAdmin, requireAuth } from "@/lib/supabase/auth-helpers";
 
 export type ActionResult =
   | { ok: true; id?: string }
@@ -176,7 +176,7 @@ export async function updateQuote(
 }
 
 export async function deleteQuote(quoteId: string): Promise<ActionResult> {
-  const auth = await requireAuth();
+  const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(quoteId);

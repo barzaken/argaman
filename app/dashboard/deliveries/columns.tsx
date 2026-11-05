@@ -9,26 +9,11 @@ import { Button } from "@/components/ui/button";
 import type { DeliveryViewRow } from "@/lib/db/types";
 import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
 import { cn } from "@/lib/utils";
-
-const payLabels: Record<DeliveryViewRow["payment_status"], string> = {
-  unpaid: "לא שולם",
-  paid: "שולם",
-};
-
-const deliveryStatusLabels: Record<DeliveryViewRow["status"], string> = {
-  waiting_for_pickup: "ממתין לאיסוף",
-  in_transit: "בדרך",
-  delivered: "נמסר",
-  cancelled: "בוטל",
-};
-
-const paymentMethodLabels: Record<string, string> = {
-  cash: "מזומן",
-  bank_transfer: "העברה בנקאית",
-  check: "צ׳ק",
-  credit_card: "כרטיס אשראי",
-  other: "אחר",
-};
+import {
+  deliveryStatusLabels,
+  paymentMethodLabels,
+  paymentStatusDisplay,
+} from "@/lib/db/labels";
 
 export const deliveriesColumnLabels: Record<string, string> = {
   delivery_number: "מס׳ משלוח",
@@ -139,7 +124,7 @@ export const deliveriesColumns: ColumnDef<DeliveryViewRow>[] = [
       const st = row.original.payment_status;
       return (
         <Badge variant={st === "paid" ? "secondary" : "destructive"}>
-          {payLabels[st]}
+          {paymentStatusDisplay(row.original)}
         </Badge>
       );
     },

@@ -117,8 +117,8 @@ export default async function CustomerDetailPage({
 
   const unpaidTotal = Math.round(
     deliveryList
-      .filter((d) => d.payment_status === "unpaid")
-      .reduce((s, d) => s + Number(d.total), 0)
+      .filter((d) => d.payment_status === "unpaid" && d.status !== "cancelled")
+      .reduce((s, d) => s + Number(d.balance ?? d.total), 0)
   );
 
   return (

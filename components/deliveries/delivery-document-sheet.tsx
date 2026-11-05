@@ -13,6 +13,11 @@ import {
   formatIssueDate,
   formatVolumeM3,
 } from "@/lib/db/format";
+import {
+  deliveryStatusLabels,
+  paymentMethodLabels,
+  paymentStatusLabels,
+} from "@/lib/db/labels";
 
 function lineAreaM2(ln: {
   length_m: number;
@@ -34,29 +39,6 @@ const heebo = Heebo({
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
-
-const deliveryStatusLabels: Record<DeliveryViewRow["status"], string> = {
-  waiting_for_pickup: "ממתין לאיסוף",
-  in_transit: "בדרך",
-  delivered: "נמסר",
-  cancelled: "בוטל",
-};
-
-const paymentStatusLabels: Record<DeliveryViewRow["payment_status"], string> = {
-  unpaid: "לא שולם",
-  paid: "שולם",
-};
-
-const paymentMethodLabels: Record<
-  NonNullable<DeliveryViewRow["payment_method"]>,
-  string
-> = {
-  cash: "מזומן",
-  bank_transfer: "העברה בנקאית",
-  check: "צ׳ק",
-  credit_card: "כרטיס אשראי",
-  other: "אחר",
-};
 
 function shippingAddressDisplay(delivery: DeliveryViewRow): string {
   if (delivery.fulfillment_method === "pickup") {

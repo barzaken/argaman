@@ -17,7 +17,7 @@ import type {
   OrderStatusDb,
   PriorityDb,
 } from "@/lib/db/types";
-import { requireAuth } from "@/lib/supabase/auth-helpers";
+import { requireAdmin, requireAuth } from "@/lib/supabase/auth-helpers";
 
 export type ActionResult =
   | { ok: true; id?: string }
@@ -201,7 +201,7 @@ export async function createOrder(
 }
 
 export async function deleteOrder(orderId: string): Promise<ActionResult> {
-  const auth = await requireAuth();
+  const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(orderId);

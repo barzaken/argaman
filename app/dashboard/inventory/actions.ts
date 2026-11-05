@@ -7,7 +7,7 @@ import { toHebrewError } from "@/lib/db/errors";
 import { optionalDateSchema } from "@/lib/db/validation";
 
 import { derivePricePerM3FromM2 } from "@/lib/db/calculations";
-import { requireAuth } from "@/lib/supabase/auth-helpers";
+import { requireAdmin, requireAuth } from "@/lib/supabase/auth-helpers";
 
 export type ActionResult =
   | { ok: true }
@@ -271,7 +271,7 @@ export async function updateInventoryItem(
 }
 
 export async function deleteInventoryItem(id: string): Promise<ActionResult> {
-  const auth = await requireAuth();
+  const auth = await requireAdmin();
   if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(id);

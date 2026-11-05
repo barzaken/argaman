@@ -71,7 +71,7 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
   return (
     <div className="flex flex-col gap-3 p-4 md:p-6">
       {[...byCustomer.entries()].map(([cid, g]) => {
-        const total = g.deliveries.reduce((s, d) => s + Number(d.total), 0);
+        const total = g.deliveries.reduce((s, d) => s + Number(d.balance ?? d.total), 0);
         const nearestDue = g.deliveries
           .map((d) => d.payment_due_date)
           .filter(Boolean)
@@ -145,7 +145,7 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="tabular-nums font-medium">
-                        {formatIls(Number(d.total))}
+                        {formatIls(Number(d.balance ?? d.total))}
                       </span>
                       <Button
                         size="sm"
@@ -188,7 +188,7 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
         title={payTarget ? `סימון תעודה #${payTarget.delivery_number} כשולמה` : ""}
         description={
           payTarget
-            ? `לסמן ${formatIls(Number(payTarget.total))} של ${payTarget.customer_name} כשולם? התעודה תוסר מרשימת החייבים.`
+            ? `לרשום תשלום של ${formatIls(Number(payTarget.balance ?? payTarget.total))} מ${payTarget.customer_name} על יתרת התעודה? התעודה תוסר מרשימת החייבים.`
             : ""
         }
         confirmLabel="סמן כשולם"

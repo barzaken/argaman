@@ -145,24 +145,50 @@ export async function updateDelivery(
   return { ok: true };
 }
 
-export async function markDeliveryPaid(id: string): Promise<ActionResult> {
+const markPaidSchema = z.object({
+  id: z.string().uuid(),
+  method: z
+    .enum(["cash", "bank_transfer", "check", "credit_card", "other"])
+    .optional()
+    .nullable(),
+  paid_at: optionalDateSchema,
+  reference: z.string().max(200).optional().nullable(),
+});
+
+/**
+ * "סמן כשולם": יוצר תשלום (payments) על יתרת התעודה ומקצה אותו אליה
+ * (rpc crm_mark_delivery_paid). אמצעי התשלום ברירת מחדל: זה שעל התעודה, או "אחר".
+ */
+export async function markDeliveryPaid(
+  id: string,
+  opts?: {
+    method?: PaymentMethodDb | null;
+    paid_at?: string | null;
+    reference?: string | null;
+  }
+): Promise<ActionResult> {
   const auth = await requireAuth();
   if (!auth.ok) return { ok: false, message: auth.message };
 
-  const parsed = z.string().uuid().safeParse(id);
-  if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
+  const parsed = markPaidSchema.safeParse({ id, ...opts });
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "מזהה לא תקין" };
+  }
 
-  const { error } = await auth.supabase
-    .from("deliveries")
-    .update({ payment_status: "paid" as PaymentStatusDb })
-    .eq("id", parsed.data);
+  const { data, error } = await auth.supabase.rpc("crm_mark_delivery_paid", {
+    p_delivery_id: parsed.data.id,
+    p_method: parsed.data.method ?? null,
+    p_paid_at: parsed.data.paid_at || null,
+    p_reference: parsed.data.reference?.trim() || null,
+  });
 
   if (error) return { ok: false, message: toHebrewError(error) };
 
   revalidatePath("/dashboard/deliveries");
-  revalidatePath(`/dashboard/deliveries/${parsed.data}`);
+  revalidatePath(`/dashboard/deliveries/${parsed.data.id}`);
   revalidatePath("/dashboard/debtors");
   revalidatePath("/dashboard/customers");
+  revalidatePath("/dashboard/payments");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return { ok: true, id: (data as string | null) ?? undefined };
 }
