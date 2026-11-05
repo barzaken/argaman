@@ -73,8 +73,7 @@ export default async function QuotesPage() {
             <CrmDataTable
               columns={quotesColumns}
               data={list}
-              filterColumnId="customer_name"
-              filterPlaceholder="סנן לפי לקוח..."
+              filterPlaceholder="חיפוש לפי לקוח, מספר, סכום…"
               columnLabels={quotesColumnLabels}
               navigateRows="quote-detail"
               truncatedAt={400}

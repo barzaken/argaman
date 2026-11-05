@@ -16,6 +16,7 @@ import { notFound } from "next/navigation";
 
 import { AllocateRemaining } from "./allocate-remaining";
 import { DeletePaymentButton } from "./delete-payment-button";
+import { GreenInvoiceReceiptButton } from "@/components/green-invoice/receipt-button";
 import { KpiCard } from "@/components/kpi-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,8 @@ import type {
   PaymentAllocationViewRow,
   PaymentViewRow,
 } from "@/lib/db/types";
+import { isGreenInvoiceConfigured } from "@/lib/green-invoice/config";
+import { hasIssuedGiId } from "@/lib/green-invoice/status";
 import { cn } from "@/lib/utils";
 
 function DetailRow({
@@ -112,6 +115,7 @@ export default async function PaymentDetailPage({
   const p = payRows?.[0] as PaymentViewRow | undefined;
   if (error || !p) notFound();
 
+  const configured = isGreenInvoiceConfigured();
   const allocations = (allocRows ?? []) as PaymentAllocationViewRow[];
   const docs = [...((docRows ?? []) as LinkedDoc[])];
   if (p.document_id && !docs.some((d) => d.id === p.document_id)) {
@@ -167,7 +171,7 @@ export default async function PaymentDetailPage({
         <KpiCard
           label="סכום התשלום"
           value={Number(p.amount)}
-          icon="circle-dollar-sign"
+          icon="wallet"
           valueType="currency"
         />
         <KpiCard
@@ -300,7 +304,16 @@ export default async function PaymentDetailPage({
                 עדיין לא הופקה קבלה לתשלום זה.
               </p>
             )}
-            {/* GREEN_INVOICE_RECEIPT_SLOT */}
+            {!p.green_invoice_url ? (
+              <div>
+                <GreenInvoiceReceiptButton
+                  paymentId={p.id}
+                  hasReceipt={hasIssuedGiId(p.green_invoice_receipt_id)}
+                  greenInvoiceUrl={p.green_invoice_url}
+                  configured={configured}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
 

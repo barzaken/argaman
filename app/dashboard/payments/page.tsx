@@ -55,7 +55,7 @@ export default async function PaymentsPage() {
         <KpiCard
           label="התקבל החודש"
           value={Number(kpis?.monthly_payments_total ?? 0)}
-          icon="circle-dollar-sign"
+          icon="wallet"
           valueType="currency"
         />
         <KpiCard

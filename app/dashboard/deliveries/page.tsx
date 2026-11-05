@@ -72,8 +72,7 @@ export default async function DeliveriesPage() {
             <CrmDataTable
               columns={deliveriesColumns}
               data={list}
-              filterColumnId="customer_name"
-              filterPlaceholder="סנן לפי לקוח..."
+              filterPlaceholder="חיפוש לפי לקוח, מספר, ח.פ, סכום…"
               columnLabels={deliveriesColumnLabels}
               navigateRows="delivery-detail"
               truncatedAt={400}

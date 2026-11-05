@@ -3,6 +3,7 @@ import { ArrowRight, Hash, Mail, MapPin, Phone, Plus, StickyNote } from "lucide-
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { ExpensesPanel } from "@/components/expenses/expenses-panel";
 import { sumBy } from "@/components/expenses/expense-utils";
 import { KpiCard } from "@/components/kpi-card";
@@ -17,6 +18,7 @@ import {
   formatIls,
 } from "@/lib/db/format";
 import type { InventoryItemViewRow, SupplierRow } from "@/lib/db/types";
+import { inventoryStatusLabels } from "@/lib/db/labels";
 import { cn } from "@/lib/utils";
 
 const linkRowClass =
@@ -52,12 +54,6 @@ function DetailRow({
     </div>
   );
 }
-
-const inventoryStatusLabels: Record<InventoryItemViewRow["status"], string> = {
-  available: "זמין",
-  unavailable: "לא זמין",
-  in_transit: "בדרך",
-};
 
 export default async function SupplierDetailPage({
   params,
@@ -107,7 +103,7 @@ export default async function SupplierDetailPage({
       </div>
 
       <div className="grid border-b border-border grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="הוצאות" value={expenseRows.length} icon="clipboard-check" />
+        <KpiCard label="הוצאות" value={expenseRows.length} icon="receipt" />
         <KpiCard
           label="סך הוצאות"
           value={Math.round(sumBy(expenseRows, (e) => e.amount_total))}
@@ -216,6 +212,7 @@ export default async function SupplierDetailPage({
 
         <div className="flex min-h-0 flex-[2] flex-col lg:overflow-auto">
           <ExpensesPanel supplierId={s.id} />
+          <DocumentsPanel filter={{ supplierId: s.id }} defaultKind="supplier_invoice" />
         </div>
       </div>
     </div>

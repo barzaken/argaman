@@ -14,15 +14,10 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorDialog } from "@/components/error-dialog";
 
 import type { QuoteViewRow } from "@/lib/db/types";
+import { quoteStatusLabels as statusLabels } from "@/lib/db/labels";
 import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
 import { cn } from "@/lib/utils";
 import { deleteQuote } from "./actions";
-
-const statusLabels: Record<QuoteViewRow["status"], string> = {
-  open: "פתוחה",
-  converted: "הומרה להזמנה",
-  cancelled: "בוטלה",
-};
 
 function StatusBadge({ status }: { status: QuoteViewRow["status"] }) {
   const variant =

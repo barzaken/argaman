@@ -59,6 +59,7 @@ export function OrderDocument({
   orderId,
   charges = [],
   delivery = null,
+  children,
 }: {
   order: OrderViewRow;
   customer: OrderDocumentCustomer;
@@ -67,6 +68,8 @@ export function OrderDocument({
   charges?: DocumentChargeLine[];
   /** תעודת המשלוח של ההזמנה, אם כבר הופקה */
   delivery?: { id: string; delivery_number: number } | null;
+  /** פאנלים מתחת להזמנה (מסמכים) — מחוץ לאזור ההדפסה */
+  children?: React.ReactNode;
 }) {
   const router = useRouter();
   const [deliveryConfirmOpen, setDeliveryConfirmOpen] = useState(false);
@@ -242,6 +245,8 @@ export function OrderDocument({
             charges={charges}
           />
         </div>
+
+        {children}
       </div>
       <ConfirmDialog
         open={deliveryConfirmOpen}

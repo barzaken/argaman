@@ -74,10 +74,10 @@ export default async function DocumentsPage({
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
       <div className="grid border-b grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="ממתינים לבדיקה" value={pendingCount ?? 0} icon="package-open" />
+        <KpiCard label="ממתינים לבדיקה" value={pendingCount ?? 0} icon="inbox" />
         <KpiCard label="הועלו החודש" value={uploadedMonth ?? 0} icon="calendar-range" />
         <KpiCard label="טופלו החודש" value={processedMonth ?? 0} icon="clipboard-check" />
-        <KpiCard label="נדחו" value={rejectedCount ?? 0} icon="file-warning" />
+        <KpiCard label="נדחו" value={rejectedCount ?? 0} icon="file-x" />
       </div>
       <div className="flex flex-1 flex-col overflow-auto p-4 md:p-6">
         <div className="mx-auto w-full max-w-[min(100%,80rem)]">

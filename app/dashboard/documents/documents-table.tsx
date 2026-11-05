@@ -97,26 +97,12 @@ export function DocumentsTable({
         </Select>
       </div>
 
-      {/* שורה בטבלה פותחת את המסמך (דרך data-row-href בתא הפעולות) */}
-      <div
-        className={cn(
-          "[&_tbody_tr:has([data-row-href])]:cursor-pointer [&_tbody_tr:has([data-row-href]):hover]:bg-muted/60",
-          isPending && "opacity-60 transition-opacity"
-        )}
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest("a,button,input,[role=menuitem]")) return;
-          if (window.getSelection()?.toString()) return;
-          const tr = target.closest("tbody tr");
-          const href = tr?.querySelector<HTMLElement>("[data-row-href]")?.dataset.rowHref;
-          if (href) router.push(href);
-        }}
-      >
+      <div className={cn(isPending && "opacity-60 transition-opacity")}>
         <CrmDataTable
           columns={documentsColumns}
           data={rows}
-          filterColumnId="counterparty_name"
-          filterPlaceholder="סנן לפי צד שני / ח.פ..."
+          filterPlaceholder="חיפוש לפי צד שני, ח.פ, מספר, סכום…"
+          navigateRows="document-detail"
           columnLabels={documentsColumnLabels}
           truncatedAt={truncatedAt}
         />

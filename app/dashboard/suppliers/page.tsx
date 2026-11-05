@@ -84,7 +84,7 @@ export default async function SuppliersPage({
         <KpiCard
           label="הוצאות החודש (ספקים)"
           value={Math.round(monthTotal)}
-          icon="calendar"
+          icon="receipt"
           valueType="currency"
         />
         <KpiCard
@@ -115,8 +115,8 @@ export default async function SuppliersPage({
             <CrmDataTable
               columns={supplierColumns}
               data={rows}
-              filterColumnId="name"
-              filterPlaceholder="סנן לפי שם ספק..."
+              filterPlaceholder="חיפוש לפי שם, ח.פ, טלפון, דוא״ל…"
+              navigateRows="supplier-detail"
               columnLabels={supplierColumnLabels}
             />
           )}

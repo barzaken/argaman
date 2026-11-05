@@ -4,12 +4,19 @@ import { ArrowRight } from "lucide-react";
 
 import { ExpenseDeleteButton } from "@/components/expenses/expense-delete-button";
 import { ExpenseForm } from "@/components/expenses/expense-form";
+import { GreenInvoiceExpenseButton } from "@/components/green-invoice/expense-button";
 import type { SupplierOption } from "@/components/suppliers/supplier-picker";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentCrmUser } from "@/lib/supabase/auth-helpers";
 import { formatDateShort, formatIlsDense } from "@/lib/db/format";
-import { expenseCategoryLabels, expenseDocumentTypeLabels } from "@/lib/db/labels";
+import {
+  expenseCategoryLabels,
+  expenseDocumentTypeLabels,
+  greenInvoiceExpenseStatusLabels,
+} from "@/lib/db/labels";
+import { isGreenInvoiceConfigured } from "@/lib/green-invoice/config";
+import { hasIssuedGiId } from "@/lib/green-invoice/status";
 import type { DocumentViewRow, ExpenseViewRow } from "@/lib/db/types";
 
 export default async function ExpenseDetailPage({
@@ -38,6 +45,7 @@ export default async function ExpenseDetailPage({
   ]);
 
   const doc = (docRes.data ?? null) as DocumentViewRow | null;
+  const configured = isGreenInvoiceConfigured();
   const title = `${expenseDocumentTypeLabels[expense.document_type] ?? "הוצאה"}${
     expense.document_number ? ` #${expense.document_number}` : ""
   }`;
@@ -77,17 +85,23 @@ export default async function ExpenseDetailPage({
           </p>
           <p className="text-muted-foreground text-xs">
             Green Invoice:{" "}
-            {expense.green_invoice_expense_id
+            {expense.green_invoice_expense_id && !hasIssuedGiId(expense.green_invoice_expense_id)
+              ? "בשליחה…"
+              : expense.green_invoice_expense_id
               ? `נשלח (מזהה ${expense.green_invoice_expense_id}${
                   expense.green_invoice_status != null
-                    ? `, סטטוס ${expense.green_invoice_status}`
+                    ? `, ${greenInvoiceExpenseStatusLabels[expense.green_invoice_status] ?? `סטטוס ${expense.green_invoice_status}`}`
                     : ""
                 })`
               : "לא נשלח"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* GREEN_INVOICE_EXPENSE_SLOT */}
+          <GreenInvoiceExpenseButton
+            expenseId={expense.id}
+            hasExpense={hasIssuedGiId(expense.green_invoice_expense_id)}
+            configured={configured}
+          />
           {me?.isAdmin ? <ExpenseDeleteButton id={expense.id} label={title} /> : null}
         </div>
       </div>

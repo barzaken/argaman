@@ -11,11 +11,7 @@ import {
   downloadDeliveryDocumentPdf,
   printDocument,
 } from "@/lib/orders/document-export";
-import type {
-  DeliveryItemRow,
-  DeliveryViewRow,
-  PaymentAllocationViewRow,
-} from "@/lib/db/types";
+import type { DeliveryItemRow, DeliveryViewRow } from "@/lib/db/types";
 import { formatDateShort, formatIls, formatIssueDate } from "@/lib/db/format";
 
 import { DeliveryDocumentSheet } from "./delivery-document-sheet";
@@ -31,18 +27,21 @@ export function DeliveryDocument({
   deliveryId,
   charges = [],
   orderNotes = null,
-  allocations = [],
   greenInvoiceUrl = null,
+  invoiceSlot = null,
+  children,
 }: {
   delivery: DeliveryViewRow;
   lines: DeliveryItemRow[];
   deliveryId: string;
   charges?: DocumentChargeLine[];
   orderNotes?: string | null;
-  /** התשלומים שהוקצו לתעודה (payment_allocations_view) */
-  allocations?: PaymentAllocationViewRow[];
   /** קישור למסמך ב-Green Invoice (מטבלת documents), אם יש */
   greenInvoiceUrl?: string | null;
+  /** כפתור Green Invoice (חשבונית) — מוצג ליד כפתורי ההדפסה */
+  invoiceSlot?: React.ReactNode;
+  /** פאנלים מתחת לתעודה (תשלומים / מסמכים) — מחוץ לאזור ההדפסה */
+  children?: React.ReactNode;
 }) {
   const amountPaid = Number(delivery.amount_paid ?? 0);
   const balance = Number(delivery.balance ?? delivery.total);
@@ -144,21 +143,6 @@ export function DeliveryDocument({
                 </span>
               ) : null}
             </div>
-            {allocations.length > 0 ? (
-              <ul className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
-                {allocations.map((a) => (
-                  <li key={a.id} className="tabular-nums">
-                    תשלום #{a.payment_number} · {formatDateShort(a.paid_at)} ·{" "}
-                    {paymentMethodLabels[a.method] ?? a.method}
-                    {a.reference ? ` (${a.reference})` : ""} ·{" "}
-                    <span className="font-medium text-foreground">
-                      {formatIls(Number(a.amount))}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
             {delivery.green_invoice_id || greenInvoiceUrl ? (
               <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span>
@@ -187,7 +171,7 @@ export function DeliveryDocument({
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            {/* GREEN_INVOICE_INVOICE_SLOT */}
+            {invoiceSlot}
             <Button
               variant="outline"
               size="sm"
@@ -239,6 +223,8 @@ export function DeliveryDocument({
             orderNotes={orderNotes}
           />
         </div>
+
+        {children}
       </div>
     </div>
   );

@@ -36,7 +36,7 @@ export default function RootLayout({
         {children}
         <Toaster
           dir="rtl"
-          position="bottom-left"
+          position="top-center"
           closeButton
           duration={3500}
           toastOptions={{

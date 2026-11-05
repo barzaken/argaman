@@ -15,24 +15,11 @@ import { ErrorDialog } from "@/components/error-dialog";
 import { useCrmRole } from "@/components/role-context";
 
 import type { OrderViewRow } from "@/lib/db/types";
+import { orderStatusLabels as statusLabels, priorityLabels } from "@/lib/db/labels";
 import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
 import { cn } from "@/lib/utils";
 import { createDeliveryFromOrder } from "@/app/dashboard/deliveries/actions";
 import { deleteOrder } from "./actions";
-
-const priorityLabels: Record<OrderViewRow["priority"], string> = {
-  low: "נמוך",
-  medium: "בינוני",
-  urgent: "דחוף",
-};
-
-const statusLabels: Record<OrderViewRow["status"], string> = {
-  open: "פתוחה",
-  in_production: "בייצור",
-  ready_for_delivery: "מוכנה למשלוח",
-  completed: "הושלמה",
-  cancelled: "בוטלה",
-};
 
 function PriorityBadge({ p }: { p: OrderViewRow["priority"] }) {
   const variant =

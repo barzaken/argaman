@@ -26,15 +26,10 @@ import {
   normalizeHex,
 } from "@/lib/db/format";
 import type { InventoryItemViewRow } from "@/lib/db/types";
+import { inventoryStatusLabels as statusLabels } from "@/lib/db/labels";
 import { deleteInventoryItem } from "./actions";
 
 export type InventoryRow = InventoryItemViewRow;
-
-const statusLabels: Record<InventoryRow["status"], string> = {
-  available: "זמין",
-  unavailable: "לא זמין",
-  in_transit: "בדרך",
-};
 
 export function inventoryRowCanSelect(row: InventoryRow): boolean {
   return row.status === "available" && row.quantity_available > 0;

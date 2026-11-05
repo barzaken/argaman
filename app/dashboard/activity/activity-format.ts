@@ -11,9 +11,15 @@ import {
   documentSourceLabels,
   documentStatusLabels,
   expenseCategoryLabels,
+  fulfillmentMethodLabels,
+  inventoryStatusLabels,
   orderChargeKindLabels,
+  orderItemStatusLabels,
+  orderStatusLabels,
   paymentMethodLabels,
   paymentStatusLabels,
+  priorityLabels,
+  quoteStatusLabels,
 } from "@/lib/db/labels";
 import type { ActivityActionDb, ActivityLogRow, CrmRoleDb } from "@/lib/db/types";
 
@@ -161,40 +167,17 @@ const SUMMARY_PRIORITY = [
   "method",
 ];
 
-// אין עדיין מפות משותפות לערכים האלה ב-labels.ts (קיימות מקומית במסכים)
-const ORDER_STATUS: Record<string, string> = {
-  open: "פתוחה",
-  in_production: "בייצור",
-  ready_for_delivery: "מוכנה למשלוח",
-  completed: "הושלמה",
-  cancelled: "בוטלה",
-};
-const ITEM_STATUS: Record<string, string> = {
-  pending: "ממתין",
-  in_progress: "בעבודה",
-  completed: "הושלם",
-  cancelled: "בוטל",
-};
-const QUOTE_STATUS: Record<string, string> = {
-  open: "פתוחה",
-  converted: "הומרה להזמנה",
-  cancelled: "בוטלה",
-};
-const INVENTORY_STATUS: Record<string, string> = {
-  available: "זמין",
-  unavailable: "לא זמין",
-  in_transit: "בדרך",
-};
-const PRIORITY: Record<string, string> = { low: "נמוך", medium: "בינוני", urgent: "דחוף" };
-const FULFILLMENT: Record<string, string> = { pickup: "איסוף", shipping: "שילוח" };
-
 function enumLabel(table: string, column: string, value: string): string | null {
   switch (column) {
     case "status":
-      if (table === "orders") return ORDER_STATUS[value] ?? null;
-      if (table === "order_items") return ITEM_STATUS[value] ?? null;
-      if (table === "quotes") return QUOTE_STATUS[value] ?? null;
-      if (table === "inventory_items") return INVENTORY_STATUS[value] ?? null;
+      if (table === "orders")
+        return orderStatusLabels[value as keyof typeof orderStatusLabels] ?? null;
+      if (table === "order_items")
+        return orderItemStatusLabels[value as keyof typeof orderItemStatusLabels] ?? null;
+      if (table === "quotes")
+        return quoteStatusLabels[value as keyof typeof quoteStatusLabels] ?? null;
+      if (table === "inventory_items")
+        return inventoryStatusLabels[value as keyof typeof inventoryStatusLabels] ?? null;
       if (table === "deliveries")
         return deliveryStatusLabels[value as keyof typeof deliveryStatusLabels] ?? null;
       if (table === "documents")
@@ -216,9 +199,9 @@ function enumLabel(table: string, column: string, value: string): string | null 
     case "source":
       return documentSourceLabels[value as keyof typeof documentSourceLabels] ?? null;
     case "priority":
-      return PRIORITY[value] ?? null;
+      return priorityLabels[value as keyof typeof priorityLabels] ?? null;
     case "fulfillment_method":
-      return FULFILLMENT[value] ?? null;
+      return fulfillmentMethodLabels[value as keyof typeof fulfillmentMethodLabels] ?? null;
     case "role":
       return crmRoleLabels[value as CrmRoleDb] ?? null;
     default:
@@ -326,10 +309,7 @@ export const PARENT_KEYS: Record<string, string> = {
   payment_allocations: "delivery_id",
 };
 
-/**
- * קישור לרשומה. מסכים של סוכנים אחרים (ספקים / מסמכים / תשלומים / הוצאות)
- * מקשרים כרגע לרשימה — לעדכן כאן כשיהיו להם דפי [id].
- */
+/** קישור לרשומה (או להורה שלה כשהשורה היא פריט / חיוב / הקצאה) */
 export function entityHref(
   table: string,
   rowId: string | null,
@@ -359,13 +339,13 @@ export function entityHref(
     case "inventory_items":
       return `/dashboard/inventory/${rowId}/edit`;
     case "suppliers":
-      return "/dashboard/suppliers";
+      return `/dashboard/suppliers/${rowId}`;
     case "documents":
-      return "/dashboard/documents";
+      return `/dashboard/documents/${rowId}`;
     case "payments":
-      return "/dashboard/payments";
+      return `/dashboard/payments/${rowId}`;
     case "expenses":
-      return "/dashboard/expenses";
+      return `/dashboard/expenses/${rowId}`;
     default:
       return null;
   }

@@ -144,7 +144,7 @@ export const documentsColumns: ColumnDef<DocumentViewRow>[] = [
     id: "actions",
     header: "",
     cell: ({ row }) => (
-      <div data-row-href={`/dashboard/documents/${row.original.id}`}>
+      <div className="flex justify-end">
         <Button variant="outline" size="sm" asChild>
           <Link href={`/dashboard/documents/${row.original.id}`}>פתיחה</Link>
         </Button>

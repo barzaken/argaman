@@ -76,13 +76,13 @@ export default async function DashboardPage() {
         <KpiCard
           label="תשלומים החודש"
           value={monthlyPayments}
-          icon="circle-dollar-sign"
+          icon="wallet"
           valueType="currency"
         />
         <KpiCard
           label="הוצאות החודש"
           value={monthlyExpenses}
-          icon="calendar-range"
+          icon="receipt"
           valueType="currency"
         />
         <Link
@@ -93,7 +93,7 @@ export default async function DashboardPage() {
           <KpiCard
             label="מסמכים לבדיקה"
             value={pendingDocuments}
-            icon="file-warning"
+            icon="inbox"
           />
         </Link>
       </div>

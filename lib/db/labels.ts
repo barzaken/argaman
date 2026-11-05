@@ -11,9 +11,15 @@ import type {
   DocumentStatusDb,
   ExpenseCategoryDb,
   ExpenseDocumentTypeDb,
+  FulfillmentMethodDb,
+  InventoryStatusDb,
   OrderChargeKindDb,
+  OrderItemStatusDb,
+  OrderStatusDb,
   PaymentMethodDb,
   PaymentStatusDb,
+  PriorityDb,
+  QuoteStatusDb,
 } from "@/lib/db/types";
 
 function toOptions<K extends string>(labels: Record<K, string>): { value: K; label: string }[] {
@@ -41,6 +47,44 @@ export const deliveryStatusLabels: Record<DeliveryStatusDb, string> = {
   in_transit: "בדרך",
   delivered: "נמסר",
   cancelled: "בוטל",
+};
+
+export const orderStatusLabels: Record<OrderStatusDb, string> = {
+  open: "פתוחה",
+  in_production: "בייצור",
+  ready_for_delivery: "מוכנה למשלוח",
+  completed: "הושלמה",
+  cancelled: "בוטלה",
+};
+
+export const orderItemStatusLabels: Record<OrderItemStatusDb, string> = {
+  pending: "ממתין",
+  in_progress: "בייצור",
+  completed: "הושלם",
+  cancelled: "בוטל",
+};
+
+export const priorityLabels: Record<PriorityDb, string> = {
+  low: "נמוך",
+  medium: "בינוני",
+  urgent: "דחוף",
+};
+
+export const quoteStatusLabels: Record<QuoteStatusDb, string> = {
+  open: "פתוחה",
+  converted: "הומרה להזמנה",
+  cancelled: "בוטלה",
+};
+
+export const inventoryStatusLabels: Record<InventoryStatusDb, string> = {
+  available: "זמין",
+  unavailable: "לא זמין",
+  in_transit: "בדרך",
+};
+
+export const fulfillmentMethodLabels: Record<FulfillmentMethodDb, string> = {
+  pickup: "איסוף",
+  shipping: "שילוח",
 };
 
 /**
@@ -155,6 +199,9 @@ export const expenseDocumentTypeLabels: Record<ExpenseDocumentTypeDb, string> = 
   405: "קבלה על תרומה",
 };
 
+/** סטטוס הוצאה ב-Green Invoice (expenses.green_invoice_status) */
+export { GI_EXPENSE_STATUS_LABELS as greenInvoiceExpenseStatusLabels } from "@/lib/green-invoice/status";
+
 // -----------------------------------------------------------------------------
 // חיובים נוספים בהזמנה
 // -----------------------------------------------------------------------------
@@ -170,9 +217,9 @@ export const orderChargeKindLabels: Record<OrderChargeKindDb, string> = {
 // יומן פעולות
 // -----------------------------------------------------------------------------
 export const activityActionLabels: Record<ActivityActionDb, string> = {
-  insert: "יצירה",
-  update: "עדכון",
-  delete: "מחיקה",
+  insert: "נוצר",
+  update: "עודכן",
+  delete: "נמחק",
 };
 
 export const activityTableLabels: Record<string, string> = {

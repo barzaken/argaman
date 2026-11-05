@@ -10,11 +10,15 @@ import {
   ClipboardCheck,
   Factory,
   FileWarning,
+  FileX,
+  Inbox,
   LayoutDashboard,
   Package,
   PackageOpen,
+  Receipt,
   Truck,
   Users,
+  Wallet,
   Warehouse,
 } from "lucide-react";
 
@@ -30,7 +34,11 @@ export type KpiIconName =
   | "calendar-range"
   | "package-open"
   | "warehouse"
-  | "users";
+  | "users"
+  | "wallet"
+  | "receipt"
+  | "inbox"
+  | "file-x";
 
 const KPI_ICONS: Record<KpiIconName, LucideIcon> = {
   "layout-dashboard": LayoutDashboard,
@@ -45,6 +53,10 @@ const KPI_ICONS: Record<KpiIconName, LucideIcon> = {
   "package-open": PackageOpen,
   warehouse: Warehouse,
   users: Users,
+  wallet: Wallet,
+  receipt: Receipt,
+  inbox: Inbox,
+  "file-x": FileX,
 };
 
 type KpiCardProps = {

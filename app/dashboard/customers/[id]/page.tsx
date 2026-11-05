@@ -14,7 +14,9 @@ import { notFound } from "next/navigation";
 import { CustomerPriceOverrides } from "./customer-price-overrides";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { KpiCard } from "@/components/kpi-card";
+import { PaymentsPanel } from "@/components/payments/payments-panel";
 import { createClient } from "@/lib/supabase/server";
 import type { CustomerStonePriceRow } from "@/lib/db/types";
 import type { CustomerRow } from "@/lib/db/types";
@@ -203,6 +205,10 @@ export default async function CustomerDetailPage({
             ) : null}
           </div>
 
+          <div className="px-4 pb-4">
+            <PaymentsPanel customerId={id} />
+          </div>
+
           <div className="border-y border-border px-4 py-3">
             <h2 className="text-sm font-semibold text-foreground">
               מחירי קטלוג ללקוח
@@ -289,6 +295,8 @@ export default async function CustomerDetailPage({
               </li>
             ) : null}
           </ul>
+
+          <DocumentsPanel filter={{ customerId: id }} />
         </div>
       </div>
     </div>

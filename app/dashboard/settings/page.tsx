@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 
+import { GreenInvoiceSettingsCard } from "@/components/green-invoice/settings-card";
 import { getCurrentCrmUser } from "@/lib/supabase/auth-helpers";
 import { createClient } from "@/lib/supabase/server";
 import { toHebrewError } from "@/lib/db/errors";
@@ -87,7 +88,7 @@ export default async function SettingsPage() {
             className="flex flex-col gap-4 border-t border-border pt-8"
             aria-label="חיבור Green Invoice"
           >
-            {/* GREEN_INVOICE_SETTINGS_SLOT */}
+            <GreenInvoiceSettingsCard />
           </section>
         </div>
       </div>

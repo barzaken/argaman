@@ -8,14 +8,6 @@ import { CheckCircle2, Loader2, RotateCcw, Trash2, XCircle } from "lucide-react"
 import { deleteDocument, setDocumentStatus } from "@/app/dashboard/documents/actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { actionCrashed } from "@/lib/action-client";
 import type { DocumentStatusDb } from "@/lib/db/types";
@@ -34,7 +26,6 @@ export function DocumentStatusActions({
   const [busy, setBusy] = useState<DocumentStatusDb | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [rejectPending, setRejectPending] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   async function changeStatus(next: DocumentStatusDb, why?: string): Promise<boolean> {
@@ -60,19 +51,6 @@ export function DocumentStatusActions({
       await changeStatus(next);
     } finally {
       setBusy(null);
-    }
-  }
-
-  async function confirmReject() {
-    setRejectPending(true);
-    try {
-      const ok = await changeStatus("rejected", reason);
-      if (ok) {
-        setRejectOpen(false);
-        setReason("");
-      }
-    } finally {
-      setRejectPending(false);
     }
   }
 
@@ -132,55 +110,31 @@ export function DocumentStatusActions({
         </Button>
       ) : null}
 
-      {/* דחייה — כמו ConfirmDialog, עם שדה סיבה שנשמר בהערות */}
-      <Dialog
+      {/* דחייה — עם שדה סיבה שנשמר בהערות */}
+      <ConfirmDialog
         open={rejectOpen}
-        onOpenChange={(next) => {
-          if (!rejectPending) setRejectOpen(next);
+        onOpenChange={setRejectOpen}
+        title="דחיית המסמך"
+        description="המסמך יסומן כ״נדחה״ והסיבה תישמר בהערות. מסמך שנדחה לא נחשב כפילות, כך שאפשר להזין אותו מחדש."
+        confirmLabel="אישור דחייה"
+        pendingLabel="דוחה…"
+        confirmVariant="destructive"
+        onConfirm={async () => {
+          const ok = await changeStatus("rejected", reason);
+          if (ok) setReason("");
+          return ok;
         }}
       >
-        <DialogContent
-          dir="rtl"
-          showCloseButton={false}
-          onPointerDownOutside={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>דחיית המסמך</DialogTitle>
-            <DialogDescription>
-              המסמך יסומן כ״נדחה״ והסיבה תישמר בהערות. מסמך שנדחה לא נחשב כפילות, כך שאפשר להזין אותו מחדש.
-            </DialogDescription>
-          </DialogHeader>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">סיבת הדחייה</span>
-            <Textarea
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="למשל: צילום לא קריא, מסמך כפול, לא שייך לעסק"
-            />
-          </label>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={rejectPending}
-              onClick={() => setRejectOpen(false)}
-            >
-              ביטול
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={rejectPending}
-              aria-busy={rejectPending}
-              onClick={() => void confirmReject()}
-            >
-              {rejectPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              {rejectPending ? "דוחה…" : "אישור דחייה"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">סיבת הדחייה</span>
+          <Textarea
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="למשל: צילום לא קריא, מסמך כפול, לא שייך לעסק"
+          />
+        </label>
+      </ConfirmDialog>
 
       {isAdmin ? (
         <ConfirmDialog

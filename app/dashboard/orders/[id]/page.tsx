@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { OrderDocument } from "@/components/orders/order-document";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -91,6 +92,10 @@ export default async function OrderDetailPage({
         ((deliveries ?? [])[0] as { id: string; delivery_number: number } | undefined) ??
         null
       }
-    />
+    >
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <DocumentsPanel filter={{ orderId: id }} className="-mt-px" />
+      </div>
+    </OrderDocument>
   );
 }

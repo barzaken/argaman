@@ -129,7 +129,11 @@ export type CrmRowNavigateKind =
   | "order-detail"
   | "quote-detail"
   | "delivery-detail"
-  | "customer-detail";
+  | "customer-detail"
+  | "payment-detail"
+  | "document-detail"
+  | "supplier-detail"
+  | "expense-detail";
 
 function rowHrefFromKind(kind: CrmRowNavigateKind, id: string): string {
   switch (kind) {
@@ -143,6 +147,14 @@ function rowHrefFromKind(kind: CrmRowNavigateKind, id: string): string {
       return `/dashboard/deliveries/${id}`;
     case "customer-detail":
       return `/dashboard/customers/${id}`;
+    case "payment-detail":
+      return `/dashboard/payments/${id}`;
+    case "document-detail":
+      return `/dashboard/documents/${id}`;
+    case "supplier-detail":
+      return `/dashboard/suppliers/${id}`;
+    case "expense-detail":
+      return `/dashboard/expenses/${id}`;
   }
 }
 
@@ -384,6 +396,16 @@ export function CrmDataTable<
                     onMouseEnter={href ? () => router.prefetch(href) : undefined}
                     onClick={(e) => {
                       if (!href) return;
+                      // לחיצות מתוך פורטל (תפריט/דיאלוג שנפתח מהשורה) או על
+                      // רכיב אינטראקטיבי בתא — לא מנווטים
+                      const target = e.target as HTMLElement;
+                      if (!e.currentTarget.contains(target)) return;
+                      if (
+                        target.closest(
+                          "a,button,input,select,textarea,label,[role=menuitem],[role=checkbox]"
+                        )
+                      )
+                        return;
                       // לא לנווט אם המשתמש סימן טקסט להעתקה
                       if (window.getSelection()?.toString()) return;
                       if (e.metaKey || e.ctrlKey) {

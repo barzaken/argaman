@@ -70,7 +70,7 @@ export default async function ExpensesPage({
         <KpiCard
           label={`${monthLabel} (כולל מע״מ)`}
           value={Math.round(sumBy(kpiRows, (e) => e.amount_total))}
-          icon="calendar"
+          icon="receipt"
           valueType="currency"
         />
         <KpiCard
@@ -109,8 +109,8 @@ export default async function ExpensesPage({
             <CrmDataTable
               columns={expenseColumns}
               data={rows}
-              filterColumnId="supplier_name"
-              filterPlaceholder="סנן לפי שם ספק..."
+              filterPlaceholder="חיפוש לפי ספק, תיאור, מספר מסמך, סכום…"
+              navigateRows="expense-detail"
               columnLabels={expenseColumnLabels}
               truncatedAt={all.length >= LIMIT ? LIMIT : undefined}
             />

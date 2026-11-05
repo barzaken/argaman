@@ -1,13 +1,18 @@
 import { notFound } from "next/navigation";
 
 import { DeliveryDocument } from "@/components/deliveries/delivery-document";
+import { DocumentsPanel } from "@/components/documents/documents-panel";
+import { GreenInvoiceInvoiceButton } from "@/components/green-invoice/invoice-button";
+import { PaymentsPanel } from "@/components/payments/payments-panel";
+import { isGreenInvoiceConfigured } from "@/lib/green-invoice/config";
+import { hasIssuedGiId } from "@/lib/green-invoice/status";
+import { getCurrentCrmUser } from "@/lib/supabase/auth-helpers";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DeliveryItemRow,
   DeliveryViewRow,
   InventoryPricingUnitDb,
   OrderChargeRow,
-  PaymentAllocationViewRow,
 } from "@/lib/db/types";
 
 export default async function DeliveryDetailPage({
@@ -21,8 +26,8 @@ export default async function DeliveryDetailPage({
   const [
     { data: delivery, error },
     { data: items },
-    { data: allocations },
     { data: linkedDocs },
+    me,
   ] = await Promise.all([
     supabase.from("deliveries_view").select("*").eq("id", id).single(),
     supabase
@@ -30,14 +35,10 @@ export default async function DeliveryDetailPage({
       .select("*, inventory_items(pricing_unit)")
       .eq("delivery_id", id),
     supabase
-      .from("payment_allocations_view")
-      .select("*")
-      .eq("delivery_id", id)
-      .order("paid_at", { ascending: false }),
-    supabase
       .from("documents")
       .select("id, green_invoice_id, green_invoice_url")
       .eq("delivery_id", id),
+    getCurrentCrmUser(),
   ]);
 
   if (error || !delivery) notFound();
@@ -63,9 +64,14 @@ export default async function DeliveryDetailPage({
     } as DeliveryItemRow;
   });
 
-  const greenInvoiceUrl =
-    (linkedDocs ?? []).find((doc) => doc.green_invoice_url)?.green_invoice_url ??
-    null;
+  const docs = linkedDocs ?? [];
+  // המסמך שמתאים לחשבונית הנוכחית (green_invoice_id), אחרת כל מסמך עם קישור
+  const giDoc =
+    (d.green_invoice_id
+      ? docs.find((doc) => doc.green_invoice_id === d.green_invoice_id)
+      : undefined) ?? docs.find((doc) => doc.green_invoice_url);
+  const greenInvoiceUrl = (giDoc?.green_invoice_url as string | null | undefined) ?? null;
+  const configured = isGreenInvoiceConfigured();
 
   return (
     <DeliveryDocument
@@ -74,8 +80,24 @@ export default async function DeliveryDetailPage({
       deliveryId={id}
       charges={(charges ?? []) as OrderChargeRow[]}
       orderNotes={(order?.notes as string | null | undefined) ?? null}
-      allocations={(allocations ?? []) as PaymentAllocationViewRow[]}
-      greenInvoiceUrl={greenInvoiceUrl as string | null}
-    />
+      greenInvoiceUrl={greenInvoiceUrl}
+      invoiceSlot={
+        <GreenInvoiceInvoiceButton
+          deliveryId={d.id}
+          hasInvoice={hasIssuedGiId(d.green_invoice_id)}
+          greenInvoiceUrl={greenInvoiceUrl}
+          customerEmail={d.customer_email}
+          configured={configured}
+          isAdmin={me?.isAdmin}
+        />
+      }
+    >
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <PaymentsPanel deliveryId={d.id} />
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <DocumentsPanel filter={{ deliveryId: d.id }} className="-mt-px" />
+        </div>
+      </div>
+    </DeliveryDocument>
   );
 }

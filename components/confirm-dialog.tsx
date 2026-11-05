@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
  * דיאלוג אישור. אם onConfirm מחזיר Promise — הדיאלוג נשאר פתוח עם מצב "טוען"
  * עד שהפעולה מסתיימת (מונע לחיצה כפולה וסגירה באמצע). החזרת false משאירה
  * אותו פתוח (למשל כשהפעולה נכשלה והשגיאה מוצגת בטוסט).
+ * children (אופציונלי) מוצג בין התיאור לכפתורים — למשל שדה "סיבה".
  */
 export function ConfirmDialog({
   open,
@@ -28,6 +29,7 @@ export function ConfirmDialog({
   pendingLabel,
   onConfirm,
   confirmVariant = "default",
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,6 +40,7 @@ export function ConfirmDialog({
   pendingLabel?: string;
   onConfirm: () => void | boolean | Promise<void | boolean>;
   confirmVariant?: "default" | "destructive";
+  children?: ReactNode;
 }) {
   const [pending, setPending] = useState(false);
 
@@ -68,6 +71,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button
             type="button"

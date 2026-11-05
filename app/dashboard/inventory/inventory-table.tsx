@@ -39,8 +39,9 @@ export function InventoryTable({ data }: { data: InventoryRow[] }) {
     <CrmDataTable
       columns={inventoryColumns}
       data={data}
-      filterColumnId="stone_name"
-      filterPlaceholder="סנן לפי שם האבן..."
+      filterPlaceholder="חיפוש לפי אבן, מידות, סטטוס, ספק…"
+      searchKeys={["supplier_name"]}
+      initialColumnVisibility={{ supplier_name: false }}
       columnLabels={inventoryColumnLabels}
       navigateRows="inventory-edit"
       enableRowSelection
