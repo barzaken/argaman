@@ -11,7 +11,6 @@ import type {
   FulfillmentMethodDb,
   OrderStatusDb,
   PaymentMethodDb,
-  PaymentStatusDb,
 } from "@/lib/db/types";
 import { requireAuth } from "@/lib/supabase/auth-helpers";
 
@@ -64,7 +63,7 @@ const updateDeliverySchema = z.object({
   shipping_address: z.string().optional().nullable(),
   delivered_at: optionalDateSchema,
   green_invoice_id: z.string().optional().nullable(),
-  payment_status: z.enum(["unpaid", "paid"]),
+  // payment_status לא נערך כאן: הוא נגזר בטריגר מהתשלומים (רישום תשלום / markDeliveryPaid)
   status: z.enum(["waiting_for_pickup", "in_transit", "delivered", "cancelled"]),
 });
 
@@ -112,7 +111,6 @@ export async function updateDelivery(
       parsed.data.delivered_at ||
       (parsed.data.status === "delivered" ? todayInIsrael() : null),
     green_invoice_id: parsed.data.green_invoice_id?.trim() || null,
-    payment_status: parsed.data.payment_status as PaymentStatusDb,
     status: parsed.data.status as DeliveryStatusDb,
   };
 

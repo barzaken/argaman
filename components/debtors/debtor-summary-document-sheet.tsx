@@ -22,6 +22,9 @@ export const DebtorSummaryDocumentSheet = forwardRef<
   const subtotal = deliveries.reduce((s, d) => s + Number(d.subtotal), 0);
   const vatAmount = deliveries.reduce((s, d) => s + Number(d.vat_amount), 0);
   const total = deliveries.reduce((s, d) => s + Number(d.total), 0);
+  const paid = deliveries.reduce((s, d) => s + Number(d.amount_paid ?? 0), 0);
+  const balance = deliveries.reduce((s, d) => s + Number(d.balance ?? d.total), 0);
+  const anyPaid = paid > 0.005;
 
   const deliveryRefs = deliveries
     .map((d) => `משלוח #${d.delivery_number} / הזמנה #${d.order_number}`)
@@ -89,7 +92,9 @@ export const DebtorSummaryDocumentSheet = forwardRef<
           </div>
           <div className="ods-meta-card">
             <span className="ods-meta-label">סטטוס תשלום</span>
-            <span className="ods-meta-value">לא שולם</span>
+            <span className="ods-meta-value">
+              {anyPaid ? "שולם חלקית" : "לא שולם"}
+            </span>
           </div>
         </div>
 
@@ -97,7 +102,9 @@ export const DebtorSummaryDocumentSheet = forwardRef<
           <table className="ods-table">
             <thead>
               <tr>
-                <th className="ods-num">סכום</th>
+                <th className="ods-num">יתרה לתשלום</th>
+                {anyPaid ? <th className="ods-num">שולם</th> : null}
+                {anyPaid ? <th className="ods-num">סכום התעודה</th> : null}
                 <th>הזמנה</th>
                 <th>משלוח</th>
               </tr>
@@ -106,8 +113,16 @@ export const DebtorSummaryDocumentSheet = forwardRef<
               {deliveries.map((d) => (
                 <tr key={d.id}>
                   <td className="ods-num ods-strong">
-                    {formatIls(Number(d.total))}
+                    {formatIls(Number(d.balance ?? d.total))}
                   </td>
+                  {anyPaid ? (
+                    <td className="ods-num">
+                      {formatIls(Number(d.amount_paid ?? 0))}
+                    </td>
+                  ) : null}
+                  {anyPaid ? (
+                    <td className="ods-num">{formatIls(Number(d.total))}</td>
+                  ) : null}
                   <td className="ods-num">#{d.order_number}</td>
                   <td className="ods-num">#{d.delivery_number}</td>
                 </tr>
@@ -125,9 +140,23 @@ export const DebtorSummaryDocumentSheet = forwardRef<
             <span className="ods-totals-label">מע״מ</span>
             <span className="ods-totals-value">{formatIls(vatAmount)}</span>
           </div>
+          {anyPaid ? (
+            <>
+              <div className="ods-totals-row">
+                <span className="ods-totals-label">סה״כ תעודות</span>
+                <span className="ods-totals-value">{formatIls(total)}</span>
+              </div>
+              <div className="ods-totals-row">
+                <span className="ods-totals-label">שולם עד כה</span>
+                <span className="ods-totals-value">−{formatIls(paid)}</span>
+              </div>
+            </>
+          ) : null}
           <div className="ods-totals-row ods-totals-grand">
-            <span className="ods-totals-label">סה״כ לתשלום</span>
-            <span className="ods-totals-value">{formatIls(total)}</span>
+            <span className="ods-totals-label">
+              {anyPaid ? "יתרה לתשלום" : "סה״כ לתשלום"}
+            </span>
+            <span className="ods-totals-value">{formatIls(balance)}</span>
           </div>
         </div>
 

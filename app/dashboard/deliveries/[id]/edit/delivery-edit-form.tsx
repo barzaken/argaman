@@ -3,12 +3,13 @@
 import { toast } from "sonner";
 import { actionCrashed } from "@/lib/action-client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Wallet } from "lucide-react";
 
-import { markDeliveryPaid, updateDelivery } from "../../actions";
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import { ErrorDialog } from "@/components/error-dialog";
+import { updateDelivery } from "../../actions";
+import { MarkPaidDialog } from "@/components/debtors/mark-paid-dialog";
 import {
   FormPageShell,
   FormStickyFooter,
@@ -24,6 +25,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { DeliveryViewRow } from "@/lib/db/types";
+import { formatDateShort, formatIls } from "@/lib/db/format";
+import { paymentStatusDisplay } from "@/lib/db/labels";
 
 function Field({
   label,
@@ -59,12 +62,15 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
   const [greenInvoice, setGreenInvoice] = useState(
     delivery.green_invoice_id ?? ""
   );
-  const [paymentStatus, setPaymentStatus] = useState(delivery.payment_status);
   const [status, setStatus] = useState(delivery.status);
   const [error, setError] = useState<string | null>(null);
-  const [dialogError, setDialogError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [paidConfirmOpen, setPaidConfirmOpen] = useState(false);
+  const [paidDialogOpen, setPaidDialogOpen] = useState(false);
+  const balance = Number(delivery.balance ?? 0);
+  const amountPaid = Number(delivery.amount_paid ?? 0);
+  const isPaid = delivery.payment_status === "paid" || balance <= 0.005;
+  const canPay = !isPaid && delivery.status !== "cancelled";
+  const newPaymentHref = `/dashboard/payments/new?customer=${delivery.customer_id}&delivery=${delivery.id}`;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,7 +87,6 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
       shipping_address: shippingAddress || null,
       delivered_at: deliveredAt || null,
       green_invoice_id: greenInvoice.trim() || null,
-      payment_status: paymentStatus,
       status,
     }).catch(actionCrashed);
     if (!res.ok) {
@@ -91,18 +96,6 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
     }
     toast.success("תעודת המשלוח עודכנה");
     router.push(`/dashboard/deliveries/${delivery.id}`);
-  }
-
-  async function handlePaid() {
-    const res = await markDeliveryPaid(delivery.id).catch(actionCrashed);
-    if (!res.ok) {
-      setDialogError(res.message);
-      return false;
-    }
-    // מסנכרנים גם את ה-state של הטופס — אחרת "שמירה" אחר כך מחזירה ל"לא שולם"
-    setPaymentStatus("paid");
-    toast.success("התעודה סומנה כשולמה");
-    router.refresh();
   }
 
   return (
@@ -193,23 +186,54 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
           />
         </Field>
 
-        <Field label="סטטוס תשלום">
-          <Select
-            dir="rtl"
-            value={paymentStatus}
-            onValueChange={(v) =>
-              setPaymentStatus(v as DeliveryViewRow["payment_status"])
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              <SelectItem value="unpaid">לא שולם</SelectItem>
-              <SelectItem value="paid">שולם</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
+        <section
+          aria-label="מצב תשלום"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-medium text-foreground">
+              מצב תשלום: {paymentStatusDisplay(delivery)}
+            </span>
+            {canPay ? (
+              <Button type="button" size="sm" asChild>
+                <Link href={newPaymentHref}>
+                  <Wallet data-icon="inline-start" />
+                  רישום תשלום
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+          <dl className="grid grid-cols-3 gap-3 text-sm">
+            <div>
+              <dt className="text-muted-foreground text-xs">סכום התעודה</dt>
+              <dd className="font-medium tabular-nums">
+                {formatIls(Number(delivery.total))}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">שולם</dt>
+              <dd className="font-medium tabular-nums">{formatIls(amountPaid)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">יתרה לתשלום</dt>
+              <dd
+                className={cn(
+                  "font-medium tabular-nums",
+                  balance > 0.005 && "text-destructive"
+                )}
+              >
+                {formatIls(Math.max(0, balance))}
+              </dd>
+            </div>
+          </dl>
+          <p className="text-muted-foreground text-xs">
+            {delivery.paid_at
+              ? `תשלום אחרון: ${formatDateShort(delivery.paid_at)}. `
+              : ""}
+            מצב התשלום מתעדכן אוטומטית מהתשלומים הרשומים — אין לערוך אותו
+            ידנית.
+          </p>
+        </section>
 
         <Field label="סטטוס משלוח">
           <Select
@@ -243,20 +267,11 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
           <Button
             type="button"
             variant="outline"
-            disabled={paymentStatus === "paid" || pending}
-            onClick={() => setPaidConfirmOpen(true)}
+            disabled={!canPay || pending}
+            onClick={() => setPaidDialogOpen(true)}
           >
-            {paymentStatus === "paid" ? "שולם" : "סמן כשולם"}
+            {isPaid ? "שולם במלואו" : "סמן כשולם במלואו"}
           </Button>
-          <ConfirmDialog
-            open={paidConfirmOpen}
-            onOpenChange={setPaidConfirmOpen}
-            title={`סימון תעודה #${delivery.delivery_number} כשולמה`}
-            description={`לסמן את התעודה כשולמה? היא תוסר מרשימת החייבים.`}
-            confirmLabel="סמן כשולם"
-            pendingLabel="מעדכן…"
-            onConfirm={handlePaid}
-          />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -271,10 +286,19 @@ export function DeliveryEditForm({ delivery }: { delivery: DeliveryViewRow }) {
           </div>
         </FormStickyFooter>
       </form>
-      <ErrorDialog
-        message={dialogError}
-        onClose={() => setDialogError(null)}
-      />
+      {paidDialogOpen ? (
+        <MarkPaidDialog
+          target={{
+            delivery_id: delivery.id,
+            delivery_number: delivery.delivery_number,
+            customer_name: delivery.customer_name,
+            balance,
+            payment_method: delivery.payment_method,
+          }}
+          onOpenChange={setPaidDialogOpen}
+          onDone={() => router.refresh()}
+        />
+      ) : null}
     </FormPageShell>
   );
 }

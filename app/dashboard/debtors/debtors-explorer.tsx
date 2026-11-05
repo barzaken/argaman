@@ -3,12 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
-import { actionCrashed } from "@/lib/action-client";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Printer } from "lucide-react";
+import { ChevronDown, Printer, Wallet } from "lucide-react";
 
 import {
   Collapsible,
@@ -18,9 +15,12 @@ import {
 import { Button } from "@/components/ui/button";
 import type { DebtorsViewRow } from "@/lib/db/types";
 import { formatDateShort, formatIls, isPastDue } from "@/lib/db/format";
-import { markDeliveryPaid } from "@/app/dashboard/deliveries/actions";
 import { ErrorDialog } from "@/components/error-dialog";
 import { DebtorPrintDialog } from "@/components/debtors/debtor-print-dialog";
+import {
+  MarkPaidDialog,
+  type MarkPaidTarget,
+} from "@/components/debtors/mark-paid-dialog";
 
 type CustomerGroup = {
   name: string;
@@ -32,21 +32,8 @@ type CustomerGroup = {
 export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [printCustomerId, setPrintCustomerId] = useState<string | null>(null);
-  const [payTarget, setPayTarget] = useState<DebtorsViewRow | null>(null);
+  const [payTarget, setPayTarget] = useState<MarkPaidTarget | null>(null);
   const router = useRouter();
-
-  async function handleMarkPaid() {
-    if (!payTarget) return;
-    const res = await markDeliveryPaid(payTarget.delivery_id).catch(
-      actionCrashed
-    );
-    if (!res.ok) {
-      setErrorMessage(res.message);
-      return;
-    }
-    toast.success(`תעודה #${payTarget.delivery_number} סומנה כשולמה`);
-    router.refresh();
-  }
 
   const byCustomer = new Map<string, CustomerGroup>();
 
@@ -71,7 +58,8 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
   return (
     <div className="flex flex-col gap-3 p-4 md:p-6">
       {[...byCustomer.entries()].map(([cid, g]) => {
-        const total = g.deliveries.reduce((s, d) => s + Number(d.balance ?? d.total), 0);
+        const total = g.deliveries.reduce((s, d) => s + Number(d.balance), 0);
+        const paidSoFar = g.deliveries.reduce((s, d) => s + Number(d.amount_paid ?? 0), 0);
         const nearestDue = g.deliveries
           .map((d) => d.payment_due_date)
           .filter(Boolean)
@@ -93,7 +81,15 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
                   </p>
                 </div>
                 <div className="text-end text-sm">
-                  <p className="font-medium tabular-nums">{formatIls(total)}</p>
+                  <p className="font-medium tabular-nums">
+                    <span className="text-muted-foreground text-xs font-normal">יתרה לגבייה </span>
+                    {formatIls(total)}
+                  </p>
+                  {paidSoFar > 0 ? (
+                    <p className="text-muted-foreground text-xs tabular-nums">
+                      כבר שולמו {formatIls(paidSoFar)}
+                    </p>
+                  ) : null}
                   <p className="text-muted-foreground text-xs">
                     {g.deliveries.length} תעודות · יעד קרוב{" "}
                     <span
@@ -107,6 +103,12 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
                   </p>
                 </div>
               </CollapsibleTrigger>
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link href={`/dashboard/payments/new?customer=${cid}`}>
+                  <Wallet data-icon="inline-start" />
+                  רישום תשלום ללקוח
+                </Link>
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -144,16 +146,41 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="tabular-nums font-medium">
-                        {formatIls(Number(d.balance ?? d.total))}
-                      </span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="tabular-nums font-medium">
+                          <span className="text-muted-foreground text-xs font-normal">יתרה </span>
+                          {formatIls(Number(d.balance))}
+                        </span>
+                        {Number(d.amount_paid) > 0 ? (
+                          <span className="text-muted-foreground text-xs tabular-nums">
+                            שולם {formatIls(Number(d.amount_paid))} מתוך{" "}
+                            {formatIls(Number(d.total))}
+                          </span>
+                        ) : null}
+                      </div>
+                      <Button size="sm" type="button" asChild>
+                        <Link
+                          href={`/dashboard/payments/new?customer=${d.customer_id}&delivery=${d.delivery_id}`}
+                          aria-label={`רישום תשלום לתעודה #${d.delivery_number}`}
+                        >
+                          רישום תשלום
+                        </Link>
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         type="button"
-                        onClick={() => setPayTarget(d)}
+                        aria-label={`סמן כשולם במלואו — תעודה #${d.delivery_number}`}
+                        onClick={() =>
+                          setPayTarget({
+                            delivery_id: d.delivery_id,
+                            delivery_number: d.delivery_number,
+                            customer_name: d.customer_name,
+                            balance: Number(d.balance),
+                          })
+                        }
                       >
-                        סמן כשולם
+                        סמן כשולם במלואו
                       </Button>
                     </div>
                   </li>
@@ -180,21 +207,16 @@ export function DebtorsExplorer({ rows }: { rows: DebtorsViewRow[] }) {
         onError={setErrorMessage}
       />
       ) : null}
-      <ConfirmDialog
-        open={payTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setPayTarget(null);
-        }}
-        title={payTarget ? `סימון תעודה #${payTarget.delivery_number} כשולמה` : ""}
-        description={
-          payTarget
-            ? `לרשום תשלום של ${formatIls(Number(payTarget.balance ?? payTarget.total))} מ${payTarget.customer_name} על יתרת התעודה? התעודה תוסר מרשימת החייבים.`
-            : ""
-        }
-        confirmLabel="סמן כשולם"
-        pendingLabel="מעדכן…"
-        onConfirm={handleMarkPaid}
-      />
+      {payTarget ? (
+        <MarkPaidDialog
+          key={payTarget.delivery_id}
+          target={payTarget}
+          onOpenChange={(open) => {
+            if (!open) setPayTarget(null);
+          }}
+          onDone={() => router.refresh()}
+        />
+      ) : null}
       <ErrorDialog
         message={errorMessage}
         onClose={() => setErrorMessage(null)}

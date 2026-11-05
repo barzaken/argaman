@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { DebtorsViewRow } from "@/lib/db/types";
-import { formatIls } from "@/lib/db/format";
+import { formatDateShort, formatIls } from "@/lib/db/format";
 import {
   downloadDebtorSummaryPdf,
   printDocuments,
@@ -116,7 +116,7 @@ export function DebtorPrintDialog({
 
   const selectedTotal = deliveries
     .filter((d) => selected.has(d.delivery_id))
-    .reduce((s, d) => s + Number(d.total), 0);
+    .reduce((s, d) => s + Number(d.balance), 0);
 
   function toggle(id: string, checked: boolean | "indeterminate") {
     setSelected((prev) => {
@@ -206,12 +206,20 @@ export function DebtorPrintDialog({
                           משלוח #{d.delivery_number} · הזמנה #{d.order_number}
                         </span>
                         <span className="text-muted-foreground text-xs">
-                          יעד תשלום: {d.payment_due_date ?? "—"}
+                          יעד תשלום: {formatDateShort(d.payment_due_date)}
                         </span>
                       </span>
                     </span>
-                    <span className="shrink-0 tabular-nums font-medium">
-                      {formatIls(Number(d.total))}
+                    <span className="flex shrink-0 flex-col items-end gap-0.5">
+                      <span className="tabular-nums font-medium">
+                        {formatIls(Number(d.balance))}
+                      </span>
+                      {Number(d.amount_paid) > 0 ? (
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          שולם {formatIls(Number(d.amount_paid))} מתוך{" "}
+                          {formatIls(Number(d.total))}
+                        </span>
+                      ) : null}
                     </span>
                   </label>
                 </li>
@@ -220,7 +228,7 @@ export function DebtorPrintDialog({
 
             <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
               <span className="text-muted-foreground">
-                {selected.size} נבחרו · סה״כ לתשלום
+                {selected.size} נבחרו · יתרה לתשלום
               </span>
               <span className="tabular-nums font-semibold">
                 {formatIls(selectedTotal)}
