@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { z } from "@/lib/zod-he";
 
 import { toHebrewError } from "@/lib/db/errors";
 import {
@@ -84,7 +84,7 @@ export async function createOrder(
   raw: z.input<typeof createOrderPayloadSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
   const { supabase } = auth;
 
   const parsed = createOrderPayloadSchema.safeParse(raw);
@@ -202,7 +202,7 @@ export async function createOrder(
 
 export async function deleteOrder(orderId: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(orderId);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -238,7 +238,7 @@ export async function updateOrderHeader(
   raw: z.infer<typeof updateOrderHeaderSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = updateOrderHeaderSchema.safeParse(raw);
   if (!parsed.success) {
@@ -273,7 +273,7 @@ export async function updateOrderItemStatus(
   status: OrderItemStatusDb
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const idParsed = z.string().uuid().safeParse(itemId);
   if (!idParsed.success) return { ok: false, message: "מזהה לא תקין" };

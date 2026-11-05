@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "@/lib/zod-he";
 
 /** תאריך YYYY-MM-DD אופציונלי (מחרוזת ריקה → null). */
 export const optionalDateSchema = z.preprocess(

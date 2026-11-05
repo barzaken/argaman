@@ -1,6 +1,6 @@
 "use server";
 
-import { z } from "zod";
+import { z } from "@/lib/zod-he";
 
 import { toHebrewError } from "@/lib/db/errors";
 
@@ -32,7 +32,7 @@ export async function getDebtorPrintData(
   deliveryIds: string[]
 ): Promise<DebtorPrintResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.array(z.string().uuid()).min(1).safeParse(deliveryIds);
   if (!parsed.success) {

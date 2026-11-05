@@ -26,6 +26,7 @@ import type {
 } from "@/lib/db/types";
 import {
   formatDimensionsCmFromMeters,
+  formatDateShort,
   formatVolumeM3,
 } from "@/lib/db/format";
 import { ChevronDown } from "lucide-react";
@@ -193,7 +194,7 @@ export function OrderItemsExplorer({
                       </span>
                       <PriorityBadge p={ord.priority as PriorityDb} />
                       <span className="text-muted-foreground text-xs">
-                        {ord.supplyDue ? `יעד ${ord.supplyDue}` : ""}
+                        {ord.supplyDue ? `יעד ${formatDateShort(ord.supplyDue)}` : ""}
                       </span>
                     </CollapsibleTrigger>
                     <CollapsibleContent>

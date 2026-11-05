@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { z } from "@/lib/zod-he";
 
 import { toHebrewError } from "@/lib/db/errors";
 
@@ -33,7 +33,7 @@ const customerSchema = z.object({
 
 export async function createCustomer(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = customerSchema.safeParse({
     name: formData.get("name"),
@@ -72,7 +72,7 @@ const updateCustomerSchema = customerSchema.extend({
 
 export async function updateCustomer(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = updateCustomerSchema.safeParse({
     id: formData.get("id"),
@@ -111,7 +111,7 @@ export async function updateCustomer(formData: FormData): Promise<ActionResult> 
 
 export async function archiveCustomer(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -138,7 +138,7 @@ export async function upsertCustomerStonePrice(
   formData: FormData
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = priceOverrideSchema.safeParse({
     customer_id: formData.get("customer_id"),
@@ -173,7 +173,7 @@ export async function deleteCustomerStonePrice(
   rowId: string
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const idParsed = z.string().uuid().safeParse(rowId);
   const customerParsed = z.string().uuid().safeParse(customerId);

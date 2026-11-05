@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { z } from "@/lib/zod-he";
 
 import { toHebrewError } from "@/lib/db/errors";
 import { optionalDateSchema } from "@/lib/db/validation";
@@ -102,7 +102,7 @@ export async function createInventoryItem(
   formData: FormData
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = parseInventoryFormData(formData);
 
@@ -167,7 +167,7 @@ export async function updateInventoryItem(
   formData: FormData
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const status = formData.get("status") as string;
   const expectedRaw = formData.get("expected_arrival_date");
@@ -272,7 +272,7 @@ export async function updateInventoryItem(
 
 export async function deleteInventoryItem(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };

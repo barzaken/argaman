@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { z } from "@/lib/zod-he";
 
 import { toHebrewError } from "@/lib/db/errors";
 import { optionalDateSchema,optionalHttpUrlSchema } from "@/lib/db/validation";
@@ -111,7 +111,7 @@ export async function createQuote(
   raw: z.input<typeof createQuotePayloadSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = createQuotePayloadSchema.safeParse(raw);
   if (!parsed.success) {
@@ -145,7 +145,7 @@ export async function updateQuote(
   raw: z.input<typeof updateQuotePayloadSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = updateQuotePayloadSchema.safeParse(raw);
   if (!parsed.success) {
@@ -177,7 +177,7 @@ export async function updateQuote(
 
 export async function deleteQuote(quoteId: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(quoteId);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -197,7 +197,7 @@ export async function createOrderFromQuote(
   raw: z.input<typeof createOrderFromQuoteSchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
   const { supabase } = auth;
 
   const parsed = createOrderFromQuoteSchema.safeParse(raw);

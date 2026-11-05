@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { z } from "@/lib/zod-he";
 
 import { toHebrewError } from "@/lib/db/errors";
 
@@ -21,7 +21,7 @@ const stoneSchema = z.object({
 
 export async function createStone(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = stoneSchema.safeParse({
     name: formData.get("name"),
@@ -53,7 +53,7 @@ const updateStoneSchema = stoneSchema.extend({
 
 export async function updateStone(formData: FormData): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = updateStoneSchema.safeParse({
     id: formData.get("id"),
@@ -85,7 +85,7 @@ export async function updateStone(formData: FormData): Promise<ActionResult> {
 
 export async function archiveStone(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };

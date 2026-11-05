@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { z } from "@/lib/zod-he";
 
 import { toHebrewError } from "@/lib/db/errors";
 import { optionalDateSchema } from "@/lib/db/validation";
@@ -30,7 +30,7 @@ export async function createDeliveryFromOrder(
   orderId: string
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(orderId);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
@@ -72,7 +72,7 @@ export async function updateDelivery(
   raw: z.infer<typeof updateDeliverySchema>
 ): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = updateDeliverySchema.safeParse(raw);
   if (!parsed.success) {
@@ -147,7 +147,7 @@ export async function updateDelivery(
 
 export async function markDeliveryPaid(id: string): Promise<ActionResult> {
   const auth = await requireAuth();
-  if (!auth.ok) return { ok: false, message: toHebrewError(auth) };
+  if (!auth.ok) return { ok: false, message: auth.message };
 
   const parsed = z.string().uuid().safeParse(id);
   if (!parsed.success) return { ok: false, message: "מזהה לא תקין" };
