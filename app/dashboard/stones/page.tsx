@@ -1,6 +1,4 @@
-import Link from "next/link";
-
-import { Badge } from "@/components/ui/badge";
+import { StonesCatalog, type CatalogStone } from "./stones-catalog";
 import { createClient } from "@/lib/supabase/server";
 import { toHebrewError } from "@/lib/db/errors";
 
@@ -27,45 +25,20 @@ export default async function StonesPage() {
     );
   }
 
+  const catalog: CatalogStone[] = (stones ?? []).map((stone) => ({
+    id: stone.id as string,
+    name: stone.name as string,
+    color_hex: stone.color_hex as string,
+    sku: (stone.sku as string | null | undefined) ?? null,
+    aliases: Array.isArray(stone.aliases) ? (stone.aliases as string[]) : [],
+    inStock: availStoneIds.has(stone.id as string),
+  }));
+
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-auto">
       <div className="flex flex-1 flex-col p-4 md:p-6">
         <div className="mx-auto w-full max-w-[min(100%,80rem)]">
-          <ul className="grid list-none gap-4 p-0 sm:grid-cols-4 xl:grid-cols-4">
-            {(stones ?? []).map((stone) => (
-              <li key={stone.id}>
-                <Link
-                  href={`/dashboard/stones/${stone.id}/edit`}
-                  className="block overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/30 hover:border-muted-foreground/25 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <div
-                    className="h-36 w-full border-b border-black/10"
-                    style={{
-                      backgroundColor: stone.color_hex as string,
-                    }}
-                    aria-hidden
-                  />
-                  <div className="flex flex-col gap-3 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h2 className="text-base font-semibold text-card-foreground">
-                        {stone.name as string}
-                      </h2>
-                      {availStoneIds.has(stone.id as string) ? (
-                        <Badge variant="secondary" className="shrink-0">
-                          במלאי
-                        </Badge>
-                      ) : null}
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {(stones ?? []).length === 0 ? (
-            <p className="py-12 text-center text-muted-foreground text-sm">
-              אין אבנים בקטלוג. הוסיפו אבן חדשה.
-            </p>
-          ) : null}
+          <StonesCatalog stones={catalog} />
         </div>
       </div>
     </div>

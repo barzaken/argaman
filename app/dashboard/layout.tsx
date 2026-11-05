@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getCurrentCrmUser,
+  NOT_ALLOWED_MESSAGE,
+} from "@/lib/supabase/auth-helpers";
 import { buildSidebarPreview } from "@/lib/data/sidebar-preview";
 
 export default async function DashboardLayout({
@@ -14,7 +18,10 @@ export default async function DashboardLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const sidebarPreview = await buildSidebarPreview(supabase);
+  const [sidebarPreview, me] = await Promise.all([
+    buildSidebarPreview(supabase),
+    getCurrentCrmUser(),
+  ]);
 
   return (
     <AppShell
@@ -25,9 +32,23 @@ export default async function DashboardLayout({
             ? user.user_metadata.full_name
             : null) ?? user.email?.split("@")[0] ?? "משתמש",
       }}
+      role={{
+        role: me?.role ?? null,
+        isAdmin: me?.isAdmin ?? false,
+        email: me?.email ?? user.email ?? null,
+        userId: me?.userId ?? user.id,
+      }}
       sidebarPreview={sidebarPreview}
     >
-      {children}
+      {me ? (
+        children
+      ) : (
+        <div className="flex flex-1 items-center justify-center p-6">
+          <p className="max-w-md rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            {NOT_ALLOWED_MESSAGE}
+          </p>
+        </div>
+      )}
     </AppShell>
   );
 }

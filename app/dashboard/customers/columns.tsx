@@ -21,6 +21,7 @@ export const customerColumnLabels: Record<string, string> = {
   address: "כתובת",
   order_count: "הזמנות",
   unpaid_balance: "יתרה פתוחה",
+  notes: "הערות",
   actions: "פעולות",
 };
 
@@ -76,6 +77,18 @@ export const customerColumns: ColumnDef<CustomerTableRow>[] = [
         {formatIls(row.original.unpaid_balance)}
       </div>
     ),
+  },
+  {
+    accessorKey: "notes",
+    header: "הערות",
+    cell: ({ row }) =>
+      row.original.notes ? (
+        <span className="line-clamp-2 max-w-[16rem] text-sm text-muted-foreground">
+          {row.original.notes}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
   },
   {
     id: "actions",

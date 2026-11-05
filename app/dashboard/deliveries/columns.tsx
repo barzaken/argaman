@@ -27,6 +27,7 @@ export const deliveriesColumnLabels: Record<string, string> = {
   green_invoice_id: "Green Invoice",
   payment_status: "סטטוס תשלום",
   total: "סכום",
+  balance: "יתרה",
   actions: "פעולות",
 };
 
@@ -52,6 +53,7 @@ export const deliveriesColumns: ColumnDef<DeliveryViewRow>[] = [
   {
     accessorKey: "customer_name",
     header: "לקוח",
+    meta: { searchValue: (d) => `${d.customer_tax_id ?? ""} ${d.notes ?? ""}` },
   },
   {
     accessorKey: "fulfillment_method",
@@ -120,10 +122,19 @@ export const deliveriesColumns: ColumnDef<DeliveryViewRow>[] = [
   {
     accessorKey: "payment_status",
     header: "שולם?",
+    meta: { searchValue: (d) => paymentStatusDisplay(d) },
     cell: ({ row }) => {
       const st = row.original.payment_status;
       return (
-        <Badge variant={st === "paid" ? "secondary" : "destructive"}>
+        <Badge
+          variant={
+            st === "paid"
+              ? "secondary"
+              : Number(row.original.amount_paid ?? 0) > 0
+                ? "outline"
+                : "destructive"
+          }
+        >
           {paymentStatusDisplay(row.original)}
         </Badge>
       );
@@ -132,6 +143,7 @@ export const deliveriesColumns: ColumnDef<DeliveryViewRow>[] = [
   {
     accessorKey: "status",
     header: "משלוח",
+    meta: { searchValue: (d) => deliveryStatusLabels[d.status] },
     cell: ({ row }) => (
       <span className="text-sm">
         {deliveryStatusLabels[row.original.status]}
@@ -146,6 +158,25 @@ export const deliveriesColumns: ColumnDef<DeliveryViewRow>[] = [
         {formatIls(Number(row.original.total))}
       </div>
     ),
+  },
+  {
+    accessorKey: "balance",
+    header: () => <div className="text-end">יתרה</div>,
+    cell: ({ row }) => {
+      const b = Number(row.original.balance ?? 0);
+      return (
+        <div
+          className={cn(
+            "text-end tabular-nums",
+            b > 0.005 && row.original.status !== "cancelled"
+              ? "font-medium text-destructive"
+              : "text-muted-foreground"
+          )}
+        >
+          {formatIls(Math.max(b, 0))}
+        </div>
+      );
+    },
   },
   {
     id: "actions",

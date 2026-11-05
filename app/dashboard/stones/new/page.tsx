@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { normalizeHex } from "@/lib/db/format";
+import { AliasesInput } from "../aliases-input";
 
 function Field({
   label,
@@ -62,6 +63,8 @@ export default function NewStonePage() {
   const router = useRouter();
   const [colorHex, setColorHex] = useState("#57534e");
   const [stoneName, setStoneName] = useState("");
+  const [sku, setSku] = useState("");
+  const [aliases, setAliases] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -72,6 +75,8 @@ export default function NewStonePage() {
     const fd = new FormData();
     fd.set("name", stoneName);
     fd.set("color_hex", normalizeHex(colorHex));
+    fd.set("sku", sku.trim());
+    fd.set("aliases", JSON.stringify(aliases));
     const res = await createStone(fd).catch(actionCrashed);
     if (!res.ok) {
       setPending(false);
@@ -111,6 +116,22 @@ export default function NewStonePage() {
                   />
                 </Field>
               </div>
+
+              <Field label="מק״ט">
+                <Input
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  dir="ltr"
+                  className="text-start"
+                  placeholder="לא חובה"
+                />
+              </Field>
+              <AliasesInput
+                label="שמות חלופיים"
+                value={aliases}
+                onChange={setAliases}
+                hint="השמות שספקים ולקוחות כותבים על המסמכים (למשל ״ירושלמי לבן״, ״JW-30״) — כך האבן תימצא גם לפיהם."
+              />
 
               {error ? (
                 <p className="text-destructive text-sm" role="alert">

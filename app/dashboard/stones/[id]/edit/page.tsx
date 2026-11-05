@@ -68,6 +68,8 @@ export default async function EditStonePage({
         id: stone.id as string,
         name: stone.name as string,
         color_hex: stone.color_hex as string,
+        sku: (stone.sku as string | null | undefined) ?? null,
+        aliases: Array.isArray(stone.aliases) ? (stone.aliases as string[]) : [],
       }}
       inventoryRows={inventoryForStone}
       orderRows={ordersForStone}

@@ -12,6 +12,7 @@ import {
   deleteCustomerStonePrice,
   upsertCustomerStonePrice,
 } from "../actions";
+import { useCrmRole } from "@/components/role-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,6 +44,7 @@ export function CustomerPriceOverrides({
   stoneOptions: Pick<StoneRow, "id" | "name">[];
 }) {
   const router = useRouter();
+  const { isAdmin } = useCrmRole();
   const [stoneId, setStoneId] = useState("");
   const [pricePerM3, setPricePerM3] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -113,18 +115,20 @@ export function CustomerPriceOverrides({
                       {formatIlsDense(Number(o.price_per_m3))} לקו״ב
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                    title="הסרה"
-                    aria-label={`הסרת המחיר המיוחד של ${o.label}`}
-                    onClick={() => setDeleteTarget(o)}
-                  >
-                    <Trash2 className="size-4" />
-                    <span className="sr-only">הסרת מחיר</span>
-                  </Button>
+                  {isAdmin ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      title="הסרה"
+                      aria-label={`הסרת המחיר המיוחד של ${o.label}`}
+                      onClick={() => setDeleteTarget(o)}
+                    >
+                      <Trash2 className="size-4" />
+                      <span className="sr-only">הסרת מחיר</span>
+                    </Button>
+                  ) : null}
                 </div>
               </li>
             ))}

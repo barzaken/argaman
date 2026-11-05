@@ -6,6 +6,7 @@ import {
   MapPin,
   Pencil,
   Phone,
+  StickyNote,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -186,6 +187,20 @@ export default async function CustomerDetailPage({
             <DetailRow icon={Mail} label="אימייל" value={c.email} />
             <DetailRow icon={Phone} label="טלפון" value={c.phone} mono />
             <DetailRow icon={MapPin} label="כתובת" value={c.address} />
+            {c.notes?.trim() ? (
+              <div className="flex gap-3 text-sm">
+                <StickyNote
+                  className="mt-0.5 size-4 shrink-0 text-zinc-300 dark:text-zinc-600"
+                  aria-hidden
+                />
+                <div className="min-w-0">
+                  <p className="text-muted-foreground text-xs">הערות</p>
+                  <p className="mt-0.5 whitespace-pre-line text-foreground">
+                    {c.notes}
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="border-y border-border px-4 py-3">

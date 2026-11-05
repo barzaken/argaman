@@ -16,8 +16,13 @@ import {
 import {
   deliveryStatusLabels,
   paymentMethodLabels,
-  paymentStatusLabels,
+  paymentStatusDisplay,
 } from "@/lib/db/labels";
+import {
+  DocumentNotes,
+  OrderChargeRows,
+  type DocumentChargeLine,
+} from "@/components/orders/order-charge-rows";
 
 function lineAreaM2(ln: {
   length_m: number;
@@ -52,8 +57,15 @@ export const DeliveryDocumentSheet = forwardRef<
   {
     delivery: DeliveryViewRow;
     lines: DeliveryItemRow[];
+    /** חיובים נוספים מההזמנה (order_charges) — לא נכללים ב-delivery_items */
+    charges?: DocumentChargeLine[];
+    /** הערות מההזמנה, כשלתעודה עצמה אין הערות */
+    orderNotes?: string | null;
   }
->(function DeliveryDocumentSheet({ delivery, lines }, ref) {
+>(function DeliveryDocumentSheet(
+  { delivery, lines, charges = [], orderNotes = null },
+  ref
+) {
   const totalVolumeM3 = lines
     .filter((ln) => (ln.inventory_pricing_unit ?? "m3") !== "m2")
     .reduce((sum, ln) => sum + Number(ln.volume_m3), 0);
@@ -142,7 +154,7 @@ export const DeliveryDocumentSheet = forwardRef<
           <div className="ods-meta-card">
             <span className="ods-meta-label">סטטוס תשלום</span>
             <span className="ods-meta-value">
-              {paymentStatusLabels[delivery.payment_status]}
+              {paymentStatusDisplay(delivery)}
               {delivery.payment_method
                 ? ` · ${paymentMethodLabels[delivery.payment_method]}`
                 : ""}
@@ -203,9 +215,12 @@ export const DeliveryDocumentSheet = forwardRef<
                   </tr>
                 );
               })}
+              <OrderChargeRows charges={charges} descriptionSpan={5} />
             </tbody>
           </table>
         </div>
+
+        <DocumentNotes notes={delivery.notes?.trim() ? delivery.notes : orderNotes} />
 
         <div className="ods-totals">
           {totalVolumeM3 > 0 ? (
