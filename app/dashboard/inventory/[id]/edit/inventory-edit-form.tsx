@@ -23,12 +23,15 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InventorySourcePanel } from "@/components/suppliers/inventory-source-panel";
+import type { SupplierOption } from "@/components/suppliers/supplier-picker";
 import { cn } from "@/lib/utils";
 import {
   INVENTORY_FINISH_LEVEL_OPTIONS,
   INVENTORY_PIECE_TYPE_OPTIONS,
 } from "@/lib/db/inventory-taxonomy";
 import type {
+  DocumentViewRow,
   InventoryFinishLevelDb,
   InventoryItemViewRow,
   InventoryPieceTypeDb,
@@ -223,12 +226,17 @@ export function InventoryEditForm({
   row,
   stones,
   orderItemRows,
+  suppliers,
+  sourceDocument,
 }: {
   row: InventoryItemViewRow;
   stones: StoneRow[];
   orderItemRows: OrderItemViewRow[];
+  suppliers: SupplierOption[];
+  sourceDocument: DocumentViewRow | null;
 }) {
   const router = useRouter();
+  const [supplierId, setSupplierId] = useState<string | null>(row.supplier_id ?? null);
   const stone = stones.find((s) => s.id === row.stone_id);
   const [lengthCm, setLengthCm] = useState(metersToCmInput(Number(row.length_m)));
   const [widthCm, setWidthCm] = useState(metersToCmInput(Number(row.width_m)));
@@ -323,10 +331,12 @@ export function InventoryEditForm({
     fd.set("piece_type", pieceType);
     if (status === "in_transit") fd.set("expected_arrival_date", expectedDate);
     else fd.set("expected_arrival_date", "");
+    fd.set("supplier_id", supplierId ?? "");
     const res = await updateInventoryItem(fd).catch(actionCrashed);
     if (!res.ok) {
       setPending(false);
       setError(res.message);
+      toast.error(res.message);
       return;
     }
     toast.success("פריט המלאי עודכן");
@@ -365,6 +375,19 @@ export function InventoryEditForm({
                 בהזמנה : {row.quantity_reserved} · סופק:{" "}
                 {row.quantity_delivered}
               </p>
+            </Section>
+
+            <Section
+              title="ספק ומסמך מקור"
+              className="flex-none justify-start border-b border-border py-6 lg:pb-5"
+            >
+              <InventorySourcePanel
+                suppliers={suppliers}
+                supplierId={supplierId}
+                onSupplierChange={setSupplierId}
+                sourceDocument={sourceDocument}
+                isNew={false}
+              />
             </Section>
 
             <Separator className="lg:hidden" />
@@ -622,7 +645,7 @@ export function InventoryEditForm({
             </Field>
           ) : null}
           {error ? (
-            <p className="text-destructive text-sm md:flex-1">{error}</p>
+            <p className="text-destructive text-sm md:flex-1" role="alert">{error}</p>
           ) : (
             <span className="hidden md:block md:flex-1" />
           )}

@@ -10,8 +10,13 @@ import { derivePricePerM3FromM2 } from "@/lib/db/calculations";
 import { requireAdmin, requireAuth } from "@/lib/supabase/auth-helpers";
 
 export type ActionResult =
-  | { ok: true }
+  | { ok: true; id?: string }
   | { ok: false; message: string };
+
+const optionalUuid = z.preprocess(
+  (v) => (v == null || (typeof v === "string" && v.trim() === "") ? null : v),
+  z.string().uuid("מזהה לא תקין").nullable()
+);
 
 const inventoryBaseSchema = z.object({
   stone_id: z.string().uuid(),
@@ -27,6 +32,8 @@ const inventoryBaseSchema = z.object({
   finish_level: z.enum(["halak", "tuboza", "masmesm"]),
   piece_type: z.enum(["panel", "frame", "plate", "standing_stone"]),
   expected_arrival_date: optionalDateSchema,
+  supplier_id: optionalUuid,
+  source_document_id: optionalUuid,
 });
 
 type InventoryFormParsed = z.infer<typeof inventoryBaseSchema>;
@@ -95,7 +102,34 @@ function parseInventoryFormData(formData: FormData) {
       expectedRaw && String(expectedRaw).length > 0
         ? String(expectedRaw)
         : null,
+    supplier_id: formData.get("supplier_id"),
+    source_document_id: formData.get("source_document_id"),
   });
+}
+
+type Supa = Extract<Awaited<ReturnType<typeof requireAuth>>, { ok: true }>["supabase"];
+
+/** מסמך מקור (תעודת משלוח מספק): קיים ולא נדחה */
+async function checkSourceDocument(
+  supabase: Supa,
+  documentId: string
+): Promise<{ ok: true; kind: string; status: string; supplier_id: string | null } | { ok: false; message: string }> {
+  const { data: doc, error } = await supabase
+    .from("documents")
+    .select("id, kind, status, supplier_id")
+    .eq("id", documentId)
+    .maybeSingle();
+  if (error) return { ok: false, message: toHebrewError(error) };
+  if (!doc) return { ok: false, message: "מסמך המקור לא נמצא — ייתכן שנמחק." };
+  if (doc.status === "rejected") {
+    return { ok: false, message: "מסמך המקור סומן כ״נדחה״ — לא ניתן לקלוט ממנו מלאי." };
+  }
+  return {
+    ok: true,
+    kind: doc.kind as string,
+    status: doc.status as string,
+    supplier_id: (doc.supplier_id as string | null) ?? null,
+  };
 }
 
 export async function createInventoryItem(
@@ -128,8 +162,16 @@ export async function createInventoryItem(
     return { ok: false, message: pricing.error };
   }
 
+  let sourceDoc: Awaited<ReturnType<typeof checkSourceDocument>> | null = null;
+  if (parsed.data.source_document_id) {
+    sourceDoc = await checkSourceDocument(auth.supabase, parsed.data.source_document_id);
+    if (!sourceDoc.ok) return { ok: false, message: sourceDoc.message };
+  }
+
   const insertPayload = {
     stone_id: parsed.data.stone_id,
+    supplier_id: parsed.data.supplier_id,
+    source_document_id: parsed.data.source_document_id,
     length_m: parsed.data.length_m,
     width_m: parsed.data.width_m,
     height_m: parsed.data.height_m,
@@ -147,16 +189,48 @@ export async function createInventoryItem(
         : null,
   };
 
-  const { error } = await auth.supabase
+  const { data: inserted, error } = await auth.supabase
     .from("inventory_items")
-    .insert(insertPayload);
+    .insert(insertPayload)
+    .select("id")
+    .single();
 
-  if (error) return { ok: false, message: toHebrewError(error) };
+  if (error || !inserted) return { ok: false, message: toHebrewError(error) };
+
+  // קליטה מתעודת משלוח של ספק — המסמך מסומן "טופל" (ומקושר לספק אם חסר)
+  if (sourceDoc?.ok && parsed.data.source_document_id) {
+    const patch: Record<string, unknown> = {};
+    if (sourceDoc.status === "pending_review" && sourceDoc.kind === "supplier_delivery_note") {
+      patch.status = "processed";
+      patch.reviewed_by = auth.userId;
+      patch.reviewed_at = new Date().toISOString();
+    }
+    if (!sourceDoc.supplier_id && parsed.data.supplier_id) {
+      patch.supplier_id = parsed.data.supplier_id;
+    }
+    if (Object.keys(patch).length > 0) {
+      const { error: docErr } = await auth.supabase
+        .from("documents")
+        .update(patch)
+        .eq("id", parsed.data.source_document_id);
+      if (docErr) {
+        return {
+          ok: false,
+          message: `פריט המלאי נשמר, אבל עדכון המסמך נכשל: ${toHebrewError(docErr)}`,
+        };
+      }
+    }
+    revalidatePath("/dashboard/documents");
+    revalidatePath(`/dashboard/documents/${parsed.data.source_document_id}`);
+  }
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/inventory/new");
   revalidatePath("/dashboard");
-  return { ok: true };
+  if (parsed.data.supplier_id) {
+    revalidatePath(`/dashboard/suppliers/${parsed.data.supplier_id}`);
+  }
+  return { ok: true, id: inserted.id as string };
 }
 
 const updateInventorySchema = inventoryBaseSchema.extend({
@@ -193,6 +267,8 @@ export async function updateInventoryItem(
       expectedRaw && String(expectedRaw).length > 0
         ? String(expectedRaw)
         : null,
+    supplier_id: formData.get("supplier_id"),
+    source_document_id: null,
   });
 
   if (!parsed.success) {
@@ -219,7 +295,7 @@ export async function updateInventoryItem(
 
   const { data: existing, error: fetchErr } = await auth.supabase
     .from("inventory_items")
-    .select("quantity_reserved, quantity_delivered, stone_id")
+    .select("quantity_reserved, quantity_delivered, stone_id, supplier_id")
     .eq("id", parsed.data.id)
     .single();
 
@@ -259,6 +335,7 @@ export async function updateInventoryItem(
         parsed.data.status === "in_transit"
           ? parsed.data.expected_arrival_date
           : null,
+      supplier_id: parsed.data.supplier_id,
     })
     .eq("id", parsed.data.id);
 
@@ -267,6 +344,9 @@ export async function updateInventoryItem(
   revalidatePath("/dashboard/inventory");
   revalidatePath(`/dashboard/inventory/${parsed.data.id}/edit`);
   revalidatePath("/dashboard");
+  for (const sid of new Set([existing.supplier_id as string | null, parsed.data.supplier_id])) {
+    if (sid) revalidatePath(`/dashboard/suppliers/${sid}`);
+  }
   return { ok: true };
 }
 

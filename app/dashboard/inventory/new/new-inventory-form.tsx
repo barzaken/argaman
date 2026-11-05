@@ -22,6 +22,11 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InventorySourcePanel } from "@/components/suppliers/inventory-source-panel";
+import {
+  matchSupplierByTaxId,
+  type SupplierOption,
+} from "@/components/suppliers/supplier-picker";
 import { cn } from "@/lib/utils";
 import {
   computeAreaM2FromCm,
@@ -35,6 +40,7 @@ import {
   INVENTORY_PIECE_TYPE_OPTIONS,
 } from "@/lib/db/inventory-taxonomy";
 import type {
+  DocumentViewRow,
   InventoryFinishLevelDb,
   InventoryPieceTypeDb,
   InventoryPricingUnitDb,
@@ -89,8 +95,29 @@ function Section({
   );
 }
 
-export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
+export function NewInventoryForm({
+  stones,
+  suppliers,
+  sourceDocument,
+  documentNotFound,
+  itemsFromDocument,
+  defaultSupplierId,
+}: {
+  stones: StoneRow[];
+  suppliers: SupplierOption[];
+  sourceDocument: DocumentViewRow | null;
+  documentNotFound: boolean;
+  itemsFromDocument: { id: string; stone_name: string; quantity_total: number }[];
+  defaultSupplierId: string | null;
+}) {
   const router = useRouter();
+  const [supplierId, setSupplierId] = useState<string | null>(
+    () =>
+      sourceDocument?.supplier_id ??
+      matchSupplierByTaxId(suppliers, sourceDocument?.counterparty_tax_id)?.id ??
+      defaultSupplierId ??
+      null
+  );
   const [selectedStoneId, setSelectedStoneId] = useState<string>("");
   const [lengthCm, setLengthCm] = useState("240");
   const [widthCm, setWidthCm] = useState("135");
@@ -140,7 +167,11 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedStoneId || !selectedStone) return;
+    if (!selectedStoneId || !selectedStone) {
+      setError("יש לבחור אבן מהקטלוג");
+      toast.error("יש לבחור אבן מהקטלוג");
+      return;
+    }
     setPending(true);
     setError(null);
     const fd = new FormData();
@@ -165,13 +196,18 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
     fd.set("finish_level", finishLevel);
     fd.set("piece_type", pieceType);
     if (status === "in_transit") fd.set("expected_arrival_date", expectedDate);
+    if (supplierId) fd.set("supplier_id", supplierId);
+    if (sourceDocument) fd.set("source_document_id", sourceDocument.id);
     const res = await createInventoryItem(fd).catch(actionCrashed);
     if (!res.ok) {
       setPending(false);
       setError(res.message);
+      toast.error(res.message);
       return;
     }
-    toast.success("הפריט נוסף למלאי");
+    toast.success(
+      sourceDocument ? "הפריט נוסף למלאי ונקשר לתעודת המשלוח" : "הפריט נוסף למלאי"
+    );
     router.push("/dashboard/inventory");
   }
 
@@ -231,6 +267,21 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
                   </div>
                 </div>
               ) : null}
+            </Section>
+
+            <Section
+              title="ספק ומסמך מקור"
+              className="flex-none justify-start border-b border-border py-6 lg:pb-5"
+            >
+              <InventorySourcePanel
+                suppliers={suppliers}
+                supplierId={supplierId}
+                onSupplierChange={setSupplierId}
+                sourceDocument={sourceDocument}
+                documentNotFound={documentNotFound}
+                itemsFromDocument={itemsFromDocument}
+                isNew
+              />
             </Section>
 
             <Separator className="lg:hidden" />
@@ -486,7 +537,7 @@ export function NewInventoryForm({ stones }: { stones: StoneRow[] }) {
             </Field>
           ) : null}
           {error ? (
-            <p className="text-destructive text-sm md:flex-1">{error}</p>
+            <p className="text-destructive text-sm md:flex-1" role="alert">{error}</p>
           ) : (
             <span className="hidden md:block md:flex-1" />
           )}
