@@ -28,7 +28,8 @@ This manual is for the AI agent that receives messages and photos of accounting 
 16. [Error messages and what to do](#16-error-messages-and-what-to-do)
 17. [Troubleshooting](#17-troubleshooting)
 18. [Cheat sheet](#18-cheat-sheet)
-19. [Appendix: where things live in the code](#appendix-where-things-live-in-the-code)
+19. [Memorials mode (מצבות) and the hourly new-lead check](#19-memorials-mode-מצבות-and-the-hourly-new-lead-check)
+20. [Appendix: where things live in the code](#appendix-where-things-live-in-the-code)
 
 ---
 
@@ -38,11 +39,11 @@ This manual is for the AI agent that receives messages and photos of accounting 
 
 | What | Address |
 |---|---|
-| The app | **https://argaman.vercel.app/** |
-| Login page | **https://argaman.vercel.app/login** |
+| The app | **https://crm.argmn.co.il/** |
+| Login page | **https://crm.argmn.co.il/login** |
 | After login | you land on **`/dashboard`** (the screen titled **"דאשבורד"**) |
 
-(The production address was given by the business owner; it does not appear in the code.)
+(The production address was given by the business owner; it does not appear in the code.) The CRM moved from `argaman.vercel.app` to **`crm.argmn.co.il`**. Until the new address opens, the old address **https://argaman.vercel.app/** shows exactly the same app with the same logins: if `crm.argmn.co.il` does not load, use the old one and tell the person.
 
 ### 0.2 Whose account you use
 
@@ -74,7 +75,7 @@ The page **`/login`**: the title **"כניסה לארגמן CRM"**, the text **"
 | Email | email text box | `your.email@example.com` | yes |
 | Password | password box | `••••••••` | yes |
 
-1. Open `https://argaman.vercel.app/login`.
+1. Open `https://crm.argmn.co.il/login`.
 2. Type the email in the email field and the password in the password field.
 3. Click **"התחברות"**. While working it reads **"מתחברים…"**.
 4. **Success**: the address becomes `/dashboard` and the header title is **"דאשבורד"**. At the bottom of the right-hand sidebar you see the user's name and, under it, the role: **"מנהל"** or **"סוכן AI"** (amber colour). Check that this is the person you are talking to.
@@ -333,18 +334,18 @@ Keep it short, in Hebrew, with the numbers you read **from the screen after savi
 
 **Document archived, waiting for a decision**
 > קיבלתי. שמרתי במערכת: {סוג המסמך} מס׳ {מספר} מ-{צד שני} (ח.פ {ח.פ}), {תאריך}, סה״כ ₪{סכום}. הסטטוס: ממתין לבדיקה.
-> קישור: https://argaman.vercel.app/dashboard/documents/{id}
+> קישור: https://crm.argmn.co.il/dashboard/documents/{id}
 > להמשיך ול{רשום תשלום / לרשום כהוצאה / לקלוט למלאי}?
 
 **Payment recorded from a receipt**
 > נרשם תשלום #{מס׳ תשלום} מ-{לקוח}: ₪{סכום} ב{אמצעי} ({אסמכתא}), {תאריך}.
 > שויך: משלוח #{N1} ₪{a1}, משלוח #{N2} ₪{a2}. {נשאר כזיכוי ללקוח: ₪X | הכול שויך}.
 > יתרה פתוחה ללקוח עכשיו: ₪{יתרה}. הקבלה {מס׳} סומנה "טופל".
-> https://argaman.vercel.app/dashboard/payments/{id}
+> https://crm.argmn.co.il/dashboard/payments/{id}
 
 **Expense recorded from a supplier invoice**
 > נרשמה הוצאה: {ספק} · {סוג מסמך} {מספר} · {קטגוריה} · ₪{סה״כ} (לפני מע״מ ₪{x}, מע״מ ₪{y}) · חודש דיווח {MM/YYYY} · {שולם/לא שולם}.
-> https://argaman.vercel.app/dashboard/expenses/{id}
+> https://crm.argmn.co.il/dashboard/expenses/{id}
 > לשלוח גם ל-Green Invoice?
 
 **Stock received from a supplier delivery note**
@@ -352,7 +353,7 @@ Keep it short, in Hebrew, with the numbers you read **from the screen after savi
 
 **Duplicate**
 > המסמך הזה כבר קיים במערכת: {סוג} מס׳ {מספר} של {צד שני} מ-{תאריך} (סטטוס: {סטטוס}). לא הזנתי אותו שוב.
-> https://argaman.vercel.app/dashboard/documents/{id}
+> https://crm.argmn.co.il/dashboard/documents/{id}
 
 **Unclear photo**
 > שמרתי את הצילום כ"ממתין לבדיקה", אבל לא הצלחתי לקרוא: {מה חסר}. אפשר לשלוח צילום ברור יותר או לכתוב לי את הפרטים?
@@ -362,7 +363,7 @@ Keep it short, in Hebrew, with the numbers you read **from the screen after savi
 
 **Morning document issued**
 > הופק ב-Morning: {שם המסמך} מס׳ {מספר} ל-{לקוח}, ₪{סה״כ}. {נשלח במייל אל … | לא נשלח במייל}.
-> PDF: {קישור "פתיחה ב-Green Invoice"} · במערכת: https://argaman.vercel.app/dashboard/documents/{id}
+> PDF: {קישור "פתיחה ב-Green Invoice"} · במערכת: https://crm.argmn.co.il/dashboard/documents/{id}
 
 **Action refused for your role**
 > הפעולה "{פעולה}" מותרת למנהל בלבד, אז לא ביצעתי אותה. מנהל יכול לבצע אותה ב-{מסך}.
@@ -1663,7 +1664,7 @@ CRM-side Morning messages (before anything is sent): see §9.12 and the field me
 
 ## 18. Cheat sheet
 
-**App**: https://argaman.vercel.app/ · login `/login` · lands on `/dashboard`. Own account per person; credentials only through the vault link; log out (**"יציאה"**) before switching person.
+**App**: https://crm.argmn.co.il/ (old address argaman.vercel.app still works) · login `/login` · lands on `/dashboard`. Own account per person; credentials only through the vault link; log out (**"יציאה"**) before switching person.
 
 **Addresses**
 - `/dashboard` · `/dashboard/stones[/new | /<id>/edit]` · `/dashboard/inventory[/new | /<id>/edit]`
@@ -1687,6 +1688,84 @@ CRM-side Morning messages (before anything is sent): see §9.12 and the field me
 
 ---
 
+## 19. Memorials mode (מצבות) and the hourly new-lead check
+
+The CRM has two modes. **קבלנים** is everything above (B2B: tombstone makers, stock, delivery notes). **מצבות** is for private families who order a tombstone, grave cleaning or lettering renewal, mostly through the website argmn.co.il. Switch with the two buttons at the top of the sidebar: **"קבלנים"** and **"מצבות"**. In memorials mode the sidebar shows **"מצבות — סקירה"**, **"לידים"**, **"הזמנות פרטיות"**, **"תזכורות"**, **"המרות Google Ads"**, plus **"יומן פעולות"** and **"הגדרות"**.
+
+A user marked **"מצבות בלבד"** (in הגדרות) sees only memorials mode; any other address sends them to `/dashboard/memorials`.
+
+### 19.1 The hourly new-lead check (every round hour, 24/7)
+
+Every lead from the website (contact form, the 3D tombstone designer, service pages, death notices) and from Google Ads lead forms is saved in the CRM automatically. There is **no email alert**: you are the alert.
+
+**Every round hour (00:00, 01:00, … 23:00, Israel time), every day, for each person you have a private chat with (Barel, Nadav, Haim):**
+
+1. Log in as **that person** (§0). The check is per person: each person must hear about each lead once, from their own chat.
+2. Open **`https://crm.argmn.co.il/dashboard/memorials/leads/unreported`** (title **"לידים שלא דווחו לי"**).
+3. Read the heading:
+   - **"אין לידים חדשים שלא דווחו לך"** → **say nothing** to the person. Do not send "no new leads". Stop here.
+   - **"N לידים חדשים שלא דווחו לך"** → continue.
+4. For **each** lead card on the page, send the person one WhatsApp message with **all** the fields shown on the card, and the **tombstone image** when the card has one (the image on the left of the card, alt text "הדמיית המצבה של …": open it and send it as a photo in the same message or right after it). Template:
+
+> ליד חדש למצבות 🔔
+> שם: {שם}
+> טלפון: {טלפון}
+> אימייל: {דוא״ל או —}
+> התקבל: {התקבל}
+> מקור: {מקור}
+> נפטר/ת: {שם הנפטר/ת או —} · תאריך פטירה: {או —}
+> הודעה: {הודעה או —}
+> פרטי העיצוב: {פרטי העיצוב, אם יש}
+> קישור לעיצוב: {הקישור "פתיחת העיצוב באתר", אם יש}
+> קמפיין: {קמפיין / מקור תנועה}
+> כרטיס הליד: https://crm.argmn.co.il/dashboard/memorials/leads/{id}
+> 📞 מומלץ להתקשר עכשיו.
+
+5. Only **after** all the messages were sent, click **"סמן הכל כדווח"** at the top of the page (or **"סמן כדווח"** on a single card, if you reported only some). Wait for the toast **"N לידים סומנו כדווחו"** / **"סומן כדווח"**. The heading then reads **"אין לידים חדשים שלא דווחו לך"**.
+6. Log out (**"יציאה"**) and repeat steps 1–5 for the next person.
+
+Rules for the check:
+- Marking "reported" is **per logged-in user**. Marking as Nadav does not mark for Barel. Never mark leads as reported for a person you did not tell.
+- If sending a message failed, do **not** mark that lead; it will appear again next hour.
+- Marking reported needs **no approval**; it changes nothing else.
+- Do not change a lead's status during the check. The people decide after they call.
+- If the page fails to load, try once more; if it still fails, tell the person once: "לא הצלחתי לבדוק לידים חדשים במערכת בשעה {HH:00}".
+
+### 19.2 Leads (לידים)
+
+`/dashboard/memorials/leads`: a table with filter chips **"הכל"**, **"חדש — להתקשר"**, **"דיברנו"**, **"הפך להזמנה"**, **"לא רלוונטי"**, **"ספאם"**. Buttons: **"לידים שלא דווחו לי"**, **"ליד טלפוני"** (a call that came in by phone: `/dashboard/memorials/leads/new`, fields **"שם הפונה"**, **"טלפון"**, **"דוא״ל"**, **"שם הנפטר/ת"**, **"תאריך פטירה"**, **"מקור"**, **"מה ביקש"**, save **"שמירת ליד"**).
+
+Lead card `/dashboard/memorials/leads/<id>`: all fields, the designed tombstone image, buttons **"התקשרות"** (phone) and **"וואטסאפ"** (opens WhatsApp in the browser with a ready message; there is no WhatsApp Business account). Under **"טיפול"**: **"דיברנו איתו"**, **"לא רלוונטי"** (optional reason), **"ספאם"**, **"פתיחה מחדש"**, **"סוג הזמנה"** + **"פתיחת הזמנה מהליד"** (creates the order at stage **"שיחה"**, copies the details and the image). **"הערות"** + **"שמירת הערות"**. **"תזכורות"** + **"הוספת תזכורת"**.
+
+The business rule is **call the family right after they leave details**. A lead's status changes only on the person's instruction ("דיברתי איתו", "לא רלוונטי"…).
+
+### 19.3 Private orders (הזמנות פרטיות)
+
+`/dashboard/memorials/orders` is a board with one column per stage: **"שיחה"**, **"הצעה"**, **"מקדמה"**, **"אישור הדמיה"**, **"ייצור"**, **"חריטה"**, **"התקנה"**. Closed ones are under **"הושלמו / בוטלו"**. Kinds: **"מצבה"**, **"ניקוי קבר"**, **"חידוש אותיות"**, **"אחר"**. Every tombstone is priced individually; there is no price list.
+
+Order page `/dashboard/memorials/orders/<id>`:
+- Stage chips (click a stage to move there), **"העברה ל{next stage}"**, **"ביטול הזמנה"** (with reason), **"פתיחה מחדש"**, **"מחיקה"** (admin only). Changing a stage needs the person's instruction.
+- **"עריכה"** → the form: customer, phone, email, address, deceased name, death date (Gregorian and Hebrew), cemetery, grave location, **"מחיר מוסכם (כולל מע״מ)"**, **"מקדמה נדרשת"**, **"תאריך התקנה"**, design link, **"נוסח המצבה"**, notes. Filling **"תאריך פטירה (לועזי)"** creates the shloshim and azkara reminders by itself.
+- **"הדמיות ותמונות"**: the image from the website and **"העלאת הדמיה"** for the office's render.
+- **"נוסח ואישור המשפחה (חתימה דיגיטלית)"**: type the wording, pick the render, click **"יצירת קישור לאישור וחתימה"**. The link (`https://crm.argmn.co.il/approve/<code>`) is copied; **"שליחה בוואטסאפ"** opens WhatsApp to the family with the link. The family reads the wording and the render, types their name, signs with a finger and confirms. Then the box shows **"נחתם ע״י … ב-…"** and **"צפייה והדפסה של האישור החתום"** (the signed record, filed with the order). A new link cancels the previous one. Creating and sending the link **needs the person's approval** (it is a message to a customer).
+- **"תשלומים"**: **"סכום"**, **"אמצעי"**, **"תאריך"**, **"זו מקדמה"**, **"רישום תשלום"**. A deposit moves an order at שיחה/הצעה to **"מקדמה"**. Needs approval, like every payment.
+- **"מסמכי Morning"**: types **"חשבונית עסקה"** (300), **"חשבונית מס"** (305), **"חשבונית מס קבלה"** (320), **"קבלה"** (400), and **"חשבונית זיכוי"** (330) **only** for an admin, only when the order is **cancelled** and the family **already paid**. 320/400 are issued for a recorded payment (**"עבור תשלום"**). Cheques: issue from the full Morning screen (§9). Every Morning document needs approval (§1.2).
+- **"תזכורות (שלושים, אזכרה, מעקב)"**: list, **"בוצע"**, **"הוספת תזכורת"**.
+
+### 19.4 Reminders (תזכורות)
+
+`/dashboard/memorials/reminders`: **"באיחור / היום"** and **"בקרוב"**. Shloshim (3 days before the 30th day) and the yearly azkara (2 weeks before, by Gregorian date) are created from the death date; marking an azkara **"בוצע"** creates next year's. Each row has **"התקשרות"**, **"וואטסאפ"** and **"בוצע"**. Messages to families are **not** sent automatically yet; when asked, you may tell the person which reminders are due today.
+
+### 19.5 Google Ads conversions
+
+`/dashboard/memorials/conversions`: leads from ads that were contacted ("Memorial - Qualified lead") and that paid a deposit ("Memorial - Deposit"), and **"הורדת CSV"** for upload to Google Ads. Only on request.
+
+### 19.6 Memorials cheat sheet
+
+`/dashboard/memorials` · `/dashboard/memorials/leads[?status=new|contacted|converted|lost|spam | /new | /<id> | /unreported]` · `/dashboard/memorials/orders[?closed=1 | /new | /<id> | /<id>/edit]` · `/dashboard/memorials/approvals/<id>` · `/dashboard/memorials/reminders` · `/dashboard/memorials/conversions`. Public (no login): `/approve/<code>`.
+
+---
+
 ## Appendix: where things live in the code
 
 For maintainers updating this manual:
@@ -1698,4 +1777,5 @@ For maintainers updating this manual:
 - Payments: `app/dashboard/payments/*`, `components/payments/*`, `components/debtors/mark-paid-dialog.tsx`.
 - Suppliers and expenses: `app/dashboard/suppliers/*`, `app/dashboard/expenses/*`, `components/suppliers/*`, `components/expenses/*`.
 - Morning: `lib/green-invoice/document-types.ts` (types and per-type rules), `document-builder.ts` (validation), `errors.ts`, `config.ts`; form: `components/green-invoice/document-form/*`; quick buttons: `components/green-invoice/*-button.tsx`; actions: `app/dashboard/green-invoice/**/actions.ts`; prefill: `app/dashboard/green-invoice/documents/prefill.ts`; reference: `docs/MORNING-DOCUMENTS.md`.
+- Memorials mode: `app/dashboard/memorials/**`, `components/memorials/*`, `lib/memorials/*`, public approval page `app/approve/[token]`, database `sql/patch-2026-11-memorials.sql`.
 - Database rules: `sql/patch-2026-11-documents-payments.sql`, `sql/patch-2026-11-document-links.sql`, contract `docs/DEV-CONTRACT-stage12.md`.

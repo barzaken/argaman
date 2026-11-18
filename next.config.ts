@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   outputFileTracingRoot: __dirname,
+  experimental: {
+    // העלאת הדמיות / חתימות למצבות (התמונה מוקטנת בדפדפן לפני השליחה)
+    serverActions: { bodySizeLimit: "4mb" },
+  },
 };
 
 export default nextConfig;

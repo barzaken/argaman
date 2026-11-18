@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -9,7 +10,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Logo } from "@/components/ui/logo";
-import { dashboardNavMain } from "@/lib/dashboard-nav";
+import { dashboardModeForPath, dashboardNavMain, MEMORIALS_BASE } from "@/lib/dashboard-nav";
+import { ModeSwitch } from "@/components/sidebar/mode-switch";
 import { cn } from "@/lib/utils";
 import { NavCollapsible } from "@/components/sidebar/nav-collapsible";
 import { NavFooter } from "@/components/sidebar/nav-footer";
@@ -22,13 +24,18 @@ import type { SidebarPreviewData } from "@/lib/data/sidebar-preview";
 export function AppSidebar({
   user,
   sidebarPreview,
+  memorialsOnly = false,
   ...props
 }: ComponentProps<typeof Sidebar> & {
   user: { email: string; name: string };
   sidebarPreview: SidebarPreviewData;
+  memorialsOnly?: boolean;
 }) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const pathname = usePathname();
+  const mode = memorialsOnly ? "memorials" : dashboardModeForPath(pathname);
+  const SHARED = new Set(["activity", "settings"]);
 
   const data: SidebarData = {
     user: {
@@ -38,6 +45,11 @@ export function AppSidebar({
     },
     navMain: dashboardNavMain
       .filter((item) => !item.hideInSidebar)
+      .filter((item) =>
+        mode === "memorials"
+          ? item.mode === "memorials" || (!memorialsOnly && SHARED.has(item.id))
+          : !item.mode
+      )
       .map(({ id, url, title, icon, ctaLabel }) => ({
         id,
         url,
@@ -63,7 +75,7 @@ export function AppSidebar({
             : "flex flex-row items-center justify-between"
         )}
       >
-        <Link href="/dashboard" className="mr-1 flex min-w-0 items-center gap-2">
+        <Link href={mode === "memorials" ? MEMORIALS_BASE : "/dashboard"} className="mr-1 flex min-w-0 items-center gap-2">
           <Logo className="size-8 shrink-0 text-sidebar-foreground" />
           {!isCollapsed && (
             <span className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -84,12 +96,15 @@ export function AppSidebar({
       </SidebarHeader>
       <NavHeader data={data} />
       <SidebarContent>
+        {!memorialsOnly ? <ModeSwitch mode={mode} collapsed={isCollapsed} /> : null}
         <NavMain items={data.navMain} />
-        <NavCollapsible
-          inStock={data.navCollapsible.inStock}
-          outOfStock={data.navCollapsible.outOfStock}
-          deliveryOrders={data.navCollapsible.deliveryOrders}
-        />
+        {mode === "contractors" ? (
+          <NavCollapsible
+            inStock={data.navCollapsible.inStock}
+            outOfStock={data.navCollapsible.outOfStock}
+            deliveryOrders={data.navCollapsible.deliveryOrders}
+          />
+        ) : null}
       </SidebarContent>
       <NavFooter user={data.user} />
     </Sidebar>
