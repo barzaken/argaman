@@ -1690,7 +1690,7 @@ CRM-side Morning messages (before anything is sent): see §9.12 and the field me
 
 ## 19. Memorials mode (מצבות) and the hourly new-lead check
 
-The CRM has two modes. **קבלנים** is everything above (B2B: tombstone makers, stock, delivery notes). **מצבות** is for private families who order a tombstone, grave cleaning or lettering renewal, mostly through the website argmn.co.il. Switch with the two buttons at the top of the sidebar: **"קבלנים"** and **"מצבות"**. In memorials mode the sidebar shows **"מצבות — סקירה"**, **"לידים"**, **"הזמנות פרטיות"**, **"תזכורות"**, **"המרות Google Ads"**, plus **"יומן פעולות"** and **"הגדרות"**.
+The CRM has two modes. **קבלנים** is everything above (B2B: tombstone makers, stock, delivery notes). **מצבות** is for private families who order a tombstone, grave cleaning or lettering renewal, mostly through the website argmn.co.il. Switch with the two buttons at the top of the sidebar: **"קבלנים"** and **"מצבות"**. In memorials mode the sidebar shows **"מצבות — סקירה"**, **"לידים"**, **"הזמנות פרטיות"**, **"תזכורות"**; **"יומן פעולות"** and **"הגדרות"** sit at the bottom of the sidebar.
 
 A user marked **"מצבות בלבד"** (in הגדרות) sees only memorials mode; any other address sends them to `/dashboard/memorials`.
 
@@ -1756,13 +1756,9 @@ Order page `/dashboard/memorials/orders/<id>`:
 
 `/dashboard/memorials/reminders`: **"באיחור / היום"** and **"בקרוב"**. Shloshim (3 days before the 30th day) and the yearly azkara (2 weeks before, by Gregorian date) are created from the death date; marking an azkara **"בוצע"** creates next year's. Each row has **"התקשרות"**, **"וואטסאפ"** and **"בוצע"**. Messages to families are **not** sent automatically yet; when asked, you may tell the person which reminders are due today.
 
-### 19.5 Google Ads conversions
+### 19.5 Memorials cheat sheet
 
-`/dashboard/memorials/conversions`: leads from ads that were contacted ("Memorial - Qualified lead") and that paid a deposit ("Memorial - Deposit"), and **"הורדת CSV"** for upload to Google Ads. Only on request.
-
-### 19.6 Memorials cheat sheet
-
-`/dashboard/memorials` · `/dashboard/memorials/leads[?status=new|contacted|converted|lost|spam | /new | /<id> | /unreported]` · `/dashboard/memorials/orders[?closed=1 | /new | /<id> | /<id>/edit]` · `/dashboard/memorials/approvals/<id>` · `/dashboard/memorials/reminders` · `/dashboard/memorials/conversions`. Public (no login): `/approve/<code>`.
+`/dashboard/memorials` · `/dashboard/memorials/leads[?status=new|contacted|converted|lost|spam | /new | /<id> | /unreported]` · `/dashboard/memorials/orders[?closed=1 | /new | /<id> | /<id>/edit]` · `/dashboard/memorials/approvals/<id>` · `/dashboard/memorials/reminders`. Public (no login): `/approve/<code>`.
 
 ---
 

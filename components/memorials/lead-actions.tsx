@@ -60,7 +60,6 @@ export function LeadStatusActions({
       <div className="flex flex-wrap gap-2">
         {status === "new" ? (
           <Button
-            size="sm"
             variant="secondary"
             disabled={!!pending}
             onClick={() => run("contacted", () => setLeadStatus(leadId, "contacted"), "סומן: דיברנו")}
@@ -69,13 +68,12 @@ export function LeadStatusActions({
           </Button>
         ) : null}
         {status !== "lost" && status !== "converted" ? (
-          <Button size="sm" variant="outline" disabled={!!pending} onClick={() => setLostOpen(true)}>
+          <Button variant="outline" disabled={!!pending} onClick={() => setLostOpen(true)}>
             לא רלוונטי
           </Button>
         ) : null}
         {status !== "spam" && status !== "converted" ? (
           <Button
-            size="sm"
             variant="ghost"
             disabled={!!pending}
             onClick={() => run("spam", () => setLeadStatus(leadId, "spam"), "סומן כספאם")}
@@ -85,7 +83,6 @@ export function LeadStatusActions({
         ) : null}
         {status === "lost" || status === "spam" ? (
           <Button
-            size="sm"
             variant="outline"
             disabled={!!pending}
             onClick={() => run("reopen", () => setLeadStatus(leadId, "contacted"), "הליד נפתח מחדש")}
@@ -94,14 +91,14 @@ export function LeadStatusActions({
           </Button>
         ) : null}
         {isAdmin ? (
-          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteOpen(true)}>
+          <Button variant="ghost" className="text-destructive" onClick={() => setDeleteOpen(true)}>
             מחיקה
           </Button>
         ) : null}
       </div>
 
       {orderId ? (
-        <Button size="sm" className="self-start" onClick={() => router.push(`/dashboard/memorials/orders/${orderId}`)}>
+        <Button className="self-start" onClick={() => router.push(`/dashboard/memorials/orders/${orderId}`)}>
           מעבר להזמנה
         </Button>
       ) : (
@@ -117,7 +114,6 @@ export function LeadStatusActions({
             </select>
           </label>
           <Button
-            size="sm"
             disabled={!!pending}
             onClick={async () => {
               setPending("convert");
@@ -175,7 +171,6 @@ export function LeadNotes({ leadId, notes }: { leadId: string; notes: string | n
     <div className="flex flex-col gap-2">
       <Textarea rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="מה סוכם בשיחה…" />
       <Button
-        size="sm"
         variant="outline"
         className="self-start"
         disabled={!dirty || pending}

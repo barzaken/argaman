@@ -98,21 +98,21 @@ export function StageStepper({ orderId, stage }: { orderId: string; stage: MemSt
       </ol>
       <div className="flex flex-wrap gap-2">
         {next && stage !== "cancelled" ? (
-          <Button size="sm" disabled={!!pending} onClick={() => run(next, () => setOrderStage(orderId, next), `השלב עודכן: ${MEM_STAGE_LABELS[next]}`)}>
+          <Button disabled={!!pending} onClick={() => run(next, () => setOrderStage(orderId, next), `השלב עודכן: ${MEM_STAGE_LABELS[next]}`)}>
             העברה ל{MEM_STAGE_LABELS[next]}
           </Button>
         ) : null}
         {stage === "cancelled" || stage === "done" ? (
-          <Button size="sm" variant="outline" disabled={!!pending} onClick={() => run("reopen", () => setOrderStage(orderId, "call"), "ההזמנה נפתחה מחדש")}>
+          <Button variant="outline" disabled={!!pending} onClick={() => run("reopen", () => setOrderStage(orderId, "call"), "ההזמנה נפתחה מחדש")}>
             פתיחה מחדש
           </Button>
         ) : (
-          <Button size="sm" variant="ghost" disabled={!!pending} onClick={() => setCancelOpen(true)}>
+          <Button variant="ghost" disabled={!!pending} onClick={() => setCancelOpen(true)}>
             ביטול הזמנה
           </Button>
         )}
         {isAdmin ? (
-          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteOpen(true)}>
+          <Button variant="ghost" className="text-destructive" onClick={() => setDeleteOpen(true)}>
             מחיקה
           </Button>
         ) : null}
@@ -227,7 +227,7 @@ export function OrderImages({ orderId, images }: { orderId: string; images: Imag
           }
         }}
       />
-      <Button size="sm" variant="outline" className="self-start" disabled={!!pending} onClick={() => inputRef.current?.click()}>
+      <Button variant="outline" className="self-start" disabled={!!pending} onClick={() => inputRef.current?.click()}>
         <ImagePlus />
         {pending === "upload" ? "מעלה…" : "העלאת הדמיה"}
       </Button>
@@ -296,7 +296,6 @@ export function ApprovalPanel({
           </code>
           <div className="flex flex-wrap gap-2">
             <Button
-              size="sm"
               variant="outline"
               onClick={async () => {
                 await navigator.clipboard.writeText(linkFor(open.token));
@@ -307,20 +306,20 @@ export function ApprovalPanel({
               העתקת קישור
             </Button>
             {whatsAppHref(phone, "") ? (
-              <Button size="sm" asChild>
+              <Button asChild>
                 <a href={whatsAppHref(phone, approvalWhatsAppText(customerName, linkFor(open.token)))!} target="_blank" rel="noopener noreferrer">
                   <MessageCircle />
                   שליחה בוואטסאפ
                 </a>
               </Button>
             ) : null}
-            <Button size="sm" variant="ghost" asChild>
+            <Button variant="ghost" asChild>
               <a href={linkFor(open.token)} target="_blank" rel="noopener noreferrer">
                 <ExternalLink />
                 תצוגה
               </a>
             </Button>
-            <Button size="sm" variant="ghost" disabled={!!pending} onClick={() => run("cancel", () => cancelApproval(open.id, orderId), "הבקשה בוטלה")}>
+            <Button variant="ghost" disabled={!!pending} onClick={() => run("cancel", () => cancelApproval(open.id, orderId), "הבקשה בוטלה")}>
               ביטול הבקשה
             </Button>
           </div>
@@ -346,7 +345,6 @@ export function ApprovalPanel({
           <p className="text-muted-foreground text-xs">כדאי להעלות הדמיה לפני השליחה, כדי שהמשפחה תאשר גם אותה.</p>
         )}
         <Button
-          size="sm"
           className="self-start"
           disabled={!!pending || text.trim().length < 2}
           onClick={() =>
@@ -462,7 +460,7 @@ export function PaymentsPanel({ orderId, payments }: { orderId: string; payments
         <Field label="תאריך">
           <Input type="date" value={form.paid_at} onChange={(e) => setForm({ ...form, paid_at: e.target.value })} />
         </Field>
-        <Button type="submit" size="sm" disabled={!!pending}>
+        <Button type="submit" disabled={!!pending}>
           {pending === "add" ? "שומר…" : "רישום תשלום"}
         </Button>
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
@@ -608,7 +606,7 @@ export function MorningDocsPanel({
             <input type="checkbox" checked={sendEmail} disabled={!hasEmail} onChange={(e) => setSendEmail(e.target.checked)} />
             {hasEmail ? "לשלוח ללקוח במייל" : "אין מייל ללקוח — לא יישלח"}
           </label>
-          <Button type="submit" size="sm" className="justify-self-start" disabled={!!pending}>
+          <Button type="submit" className="justify-self-start" disabled={!!pending}>
             {pending === "issue" ? "מפיק…" : `הפקת ${MEM_DOC_TYPE_LABELS[docType]}`}
           </Button>
           {docType === 330 ? (
@@ -626,7 +624,7 @@ export function MorningDocsPanel({
 export function ReminderDoneButton({ id }: { id: string }) {
   const { pending, run } = useRun();
   return (
-    <Button size="sm" variant="outline" disabled={!!pending} onClick={() => run("done", () => completeReminder(id), "סומן כבוצע")}>
+    <Button variant="outline" disabled={!!pending} onClick={() => run("done", () => completeReminder(id), "סומן כבוצע")}>
       {pending ? "…" : "בוצע"}
     </Button>
   );
@@ -647,7 +645,7 @@ export function AddReminderForm({ orderId, leadId }: { orderId?: string; leadId?
     >
       <Input type="date" className="w-40" value={due} onChange={(e) => setDue(e.target.value)} />
       <Input className="min-w-48 flex-1" placeholder="למשל: לחזור למשפחה אחרי החגים" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <Button type="submit" size="sm" variant="outline" disabled={!!pending || title.trim().length < 2}>
+      <Button type="submit" variant="outline" disabled={!!pending || title.trim().length < 2}>
         הוספת תזכורת
       </Button>
     </form>

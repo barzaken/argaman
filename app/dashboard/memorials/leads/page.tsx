@@ -65,10 +65,10 @@ export default async function MemorialLeadsPage({
             ))}
           </nav>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" asChild>
+            <Button variant="outline" asChild>
               <Link href="/dashboard/memorials/leads/unreported">לידים שלא דווחו לי</Link>
             </Button>
-            <Button size="sm" asChild>
+            <Button asChild>
               <Link href="/dashboard/memorials/leads/new">ליד טלפוני</Link>
             </Button>
           </div>

@@ -51,12 +51,12 @@ export default async function MemorialOrdersPage({
           {showClosed ? "הזמנות שהושלמו או בוטלו" : "לוח הזמנות פרטיות לפי שלב"}
         </p>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" asChild>
+          <Button variant="outline" asChild>
             <Link href={showClosed ? "/dashboard/memorials/orders" : "/dashboard/memorials/orders?closed=1"}>
               {showClosed ? "הזמנות פתוחות" : "הושלמו / בוטלו"}
             </Link>
           </Button>
-          <Button size="sm" asChild>
+          <Button asChild>
             <Link href="/dashboard/memorials/orders/new">הזמנה חדשה</Link>
           </Button>
         </div>
