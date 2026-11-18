@@ -15,7 +15,6 @@ export function MarkReportedButton({ ids, label }: { ids: string[]; label?: stri
   if (!ids.length) return null;
   return (
     <Button
-      size="sm"
       variant="outline"
       disabled={pending}
       data-testid="mark-reported"

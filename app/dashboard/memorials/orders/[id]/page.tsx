@@ -51,7 +51,7 @@ export default async function MemorialOrderPage({ params }: { params: Promise<{ 
             actions={
               <div className="flex flex-wrap items-center gap-2">
                 <StageBadge stage={o.stage} />
-                <Button size="sm" variant="outline" asChild>
+                <Button variant="outline" asChild>
                   <Link href={`/dashboard/memorials/orders/${o.id}/edit`}>
                     <Pencil />
                     עריכה

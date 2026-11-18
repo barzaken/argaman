@@ -20,7 +20,6 @@ import {
   ClipboardList,
   Flower2,
   Inbox,
-  TrendingUp,
 } from "lucide-react";
 
 export type DashboardNavMainItem = {
@@ -320,14 +319,6 @@ export const dashboardNavMain: DashboardNavMainItem[] = [
     url: "/dashboard/memorials/reminders",
     title: "תזכורות",
     icon: BellRing,
-    ctaLabel: null,
-    mode: "memorials",
-  },
-  {
-    id: "mem-conversions",
-    url: "/dashboard/memorials/conversions",
-    title: "המרות Google Ads",
-    icon: TrendingUp,
     ctaLabel: null,
     mode: "memorials",
   },

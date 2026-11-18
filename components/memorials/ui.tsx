@@ -66,7 +66,7 @@ export function InfoRow({ label, value, ltr }: { label: string; value: ReactNode
 export function ContactButtons({
   phone,
   whatsappText,
-  size = "sm",
+  size = "default",
 }: {
   phone: string | null;
   whatsappText: string;

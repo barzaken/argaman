@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export function PrintButton() {
   return (
-    <Button size="sm" variant="outline" onClick={() => window.print()}>
+    <Button variant="outline" onClick={() => window.print()}>
       <Printer />
       הדפסה / PDF
     </Button>

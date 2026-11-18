@@ -36,6 +36,18 @@ export function AppSidebar({
   const pathname = usePathname();
   const mode = memorialsOnly ? "memorials" : dashboardModeForPath(pathname);
   const SHARED = new Set(["activity", "settings"]);
+  const toNavItem = ({ id, url, title, icon, ctaLabel }: (typeof dashboardNavMain)[number]) => ({
+    id,
+    url,
+    title,
+    icon,
+    ctaLabel,
+  });
+  // במצב מצבות: "יומן פעולות" ו"הגדרות" יושבים בתחתית הסרגל, מופרדים מהניווט
+  const navBottom =
+    mode === "memorials" && !memorialsOnly
+      ? dashboardNavMain.filter((item) => !item.hideInSidebar && SHARED.has(item.id)).map(toNavItem)
+      : [];
 
   const data: SidebarData = {
     user: {
@@ -46,17 +58,9 @@ export function AppSidebar({
     navMain: dashboardNavMain
       .filter((item) => !item.hideInSidebar)
       .filter((item) =>
-        mode === "memorials"
-          ? item.mode === "memorials" || (!memorialsOnly && SHARED.has(item.id))
-          : !item.mode
+        mode === "memorials" ? item.mode === "memorials" : !item.mode
       )
-      .map(({ id, url, title, icon, ctaLabel }) => ({
-        id,
-        url,
-        title,
-        icon,
-        ctaLabel,
-      })),
+      .map(toNavItem),
     navCollapsible: {
       inStock: sidebarPreview.inStock,
       outOfStock: sidebarPreview.outOfStock,
@@ -104,6 +108,11 @@ export function AppSidebar({
             outOfStock={data.navCollapsible.outOfStock}
             deliveryOrders={data.navCollapsible.deliveryOrders}
           />
+        ) : null}
+        {navBottom.length ? (
+          <div className="mt-auto border-t border-sidebar-border">
+            <NavMain items={navBottom} />
+          </div>
         ) : null}
       </SidebarContent>
       <NavFooter user={data.user} />
