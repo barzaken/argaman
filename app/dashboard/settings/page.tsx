@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { toHebrewError } from "@/lib/db/errors";
 import type { CrmRoleDb, CrmUserRow } from "@/lib/db/types";
 
+import { MemorialsOnlyToggles } from "./memorials-only";
 import { CopyableSql, UsersRolesTable } from "./users-roles";
 
 const ADD_USER_SQL = `INSERT INTO public.crm_users (user_id, role)
@@ -16,10 +17,12 @@ ON CONFLICT (user_id) DO UPDATE SET role = EXCLUDED.role;`;
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const [me, { data: users, error }] = await Promise.all([
+  const [me, { data: users, error }, memOnly] = await Promise.all([
     getCurrentCrmUser(),
     supabase.rpc("crm_list_users"),
+    supabase.rpc("crm_memorials_only_users"),
   ]);
+  const memorialsOnlyIds = ((memOnly.data ?? []) as unknown[]).map(String);
 
   const list = ((users ?? []) as CrmUserRow[]).map((u) => ({
     ...u,
@@ -83,6 +86,20 @@ export default async function SettingsPage() {
               <CopyableSql sql={ADD_USER_SQL} />
             </div>
           </section>
+
+          {isAdmin && !memOnly.error ? (
+            <section className="flex flex-col gap-3 border-t border-border pt-8" aria-labelledby="mem-only-title">
+              <div>
+                <h2 id="mem-only-title" className="text-lg font-semibold text-foreground">
+                  גישה למצב מצבות בלבד
+                </h2>
+                <p className="text-muted-foreground text-sm">
+                  משתמש מסומן רואה רק את מצב המצבות (לידים, הזמנות פרטיות, תזכורות) ולא את צד הקבלנים. אפשרי לסוכן בלבד, לא למנהל.
+                </p>
+              </div>
+              <MemorialsOnlyToggles users={list} restricted={memorialsOnlyIds} currentUserId={me?.userId ?? null} />
+            </section>
+          ) : null}
 
           <section
             className="flex flex-col gap-4 border-t border-border pt-8"

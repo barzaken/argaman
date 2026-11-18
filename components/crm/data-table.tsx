@@ -133,7 +133,9 @@ export type CrmRowNavigateKind =
   | "payment-detail"
   | "document-detail"
   | "supplier-detail"
-  | "expense-detail";
+  | "expense-detail"
+  | "memorial-lead-detail"
+  | "memorial-order-detail";
 
 function rowHrefFromKind(kind: CrmRowNavigateKind, id: string): string {
   switch (kind) {
@@ -155,6 +157,10 @@ function rowHrefFromKind(kind: CrmRowNavigateKind, id: string): string {
       return `/dashboard/suppliers/${id}`;
     case "expense-detail":
       return `/dashboard/expenses/${id}`;
+    case "memorial-lead-detail":
+      return `/dashboard/memorials/leads/${id}`;
+    case "memorial-order-detail":
+      return `/dashboard/memorials/orders/${id}`;
   }
 }
 

@@ -16,6 +16,11 @@ import {
   Users,
   Wallet,
   Gem,
+  BellRing,
+  ClipboardList,
+  Flower2,
+  Inbox,
+  TrendingUp,
 } from "lucide-react";
 
 export type DashboardNavMainItem = {
@@ -28,7 +33,17 @@ export type DashboardNavMainItem = {
   headerCtaHref?: string;
   /** If true, used only for page-header / command-palette matching; omitted from the main sidebar list. */
   hideInSidebar?: boolean;
+  /** "memorials" = מצב מצבות (לקוחות פרטיים). ברירת מחדל: מצב קבלנים */
+  mode?: "memorials";
 };
+
+export type DashboardMode = "contractors" | "memorials";
+
+export const MEMORIALS_BASE = "/dashboard/memorials";
+
+export function dashboardModeForPath(pathname: string): DashboardMode {
+  return pathname === MEMORIALS_BASE || pathname.startsWith(`${MEMORIALS_BASE}/`) ? "memorials" : "contractors";
+}
 
 export const dashboardNavMain: DashboardNavMainItem[] = [
   {
@@ -233,6 +248,88 @@ export const dashboardNavMain: DashboardNavMainItem[] = [
     title: "הגדרות",
     icon: Settings,
     ctaLabel: null,
+  },
+  // ---------------------------------------------------------------------------
+  // מצב מצבות (לקוחות פרטיים)
+  // ---------------------------------------------------------------------------
+  {
+    id: "mem-home",
+    url: "/dashboard/memorials",
+    title: "מצבות — סקירה",
+    icon: Flower2,
+    ctaLabel: "ליד טלפוני",
+    headerCtaHref: "/dashboard/memorials/leads/new",
+    mode: "memorials",
+  },
+  {
+    id: "mem-leads",
+    url: "/dashboard/memorials/leads",
+    title: "לידים",
+    icon: Inbox,
+    ctaLabel: "ליד טלפוני",
+    headerCtaHref: "/dashboard/memorials/leads/new",
+    mode: "memorials",
+  },
+  {
+    id: "mem-leads-new",
+    url: "/dashboard/memorials/leads/new",
+    title: "ליד טלפוני",
+    icon: Inbox,
+    ctaLabel: null,
+    hideInSidebar: true,
+    mode: "memorials",
+  },
+  {
+    id: "mem-leads-unreported",
+    url: "/dashboard/memorials/leads/unreported",
+    title: "לידים שלא דווחו לי",
+    icon: Inbox,
+    ctaLabel: null,
+    hideInSidebar: true,
+    mode: "memorials",
+  },
+  {
+    id: "mem-orders",
+    url: "/dashboard/memorials/orders",
+    title: "הזמנות פרטיות",
+    icon: ClipboardList,
+    ctaLabel: "הזמנה חדשה",
+    headerCtaHref: "/dashboard/memorials/orders/new",
+    mode: "memorials",
+  },
+  {
+    id: "mem-orders-new",
+    url: "/dashboard/memorials/orders/new",
+    title: "הזמנה פרטית חדשה",
+    icon: ClipboardList,
+    ctaLabel: null,
+    hideInSidebar: true,
+    mode: "memorials",
+  },
+  {
+    id: "mem-approvals",
+    url: "/dashboard/memorials/approvals",
+    title: "אישור נוסח חתום",
+    icon: ClipboardList,
+    ctaLabel: null,
+    hideInSidebar: true,
+    mode: "memorials",
+  },
+  {
+    id: "mem-reminders",
+    url: "/dashboard/memorials/reminders",
+    title: "תזכורות",
+    icon: BellRing,
+    ctaLabel: null,
+    mode: "memorials",
+  },
+  {
+    id: "mem-conversions",
+    url: "/dashboard/memorials/conversions",
+    title: "המרות Google Ads",
+    icon: TrendingUp,
+    ctaLabel: null,
+    mode: "memorials",
   },
 ];
 

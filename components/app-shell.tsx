@@ -16,16 +16,18 @@ export function AppShell({
   user,
   role,
   sidebarPreview,
+  memorialsOnly = false,
 }: {
   children: ReactNode;
   user: { email: string; name: string };
   role: CrmRoleContextValue;
   sidebarPreview: SidebarPreviewData;
+  memorialsOnly?: boolean;
 }) {
   return (
     <CrmRoleProvider value={role}>
     <SidebarProvider>
-      <AppSidebar user={user} sidebarPreview={sidebarPreview} />
+      <AppSidebar user={user} sidebarPreview={sidebarPreview} memorialsOnly={memorialsOnly} />
       <SidebarInset className="min-h-0 overflow-hidden">
         <PageHeader />
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

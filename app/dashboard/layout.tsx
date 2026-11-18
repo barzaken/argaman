@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
@@ -8,6 +9,7 @@ import {
   NOT_ALLOWED_MESSAGE,
 } from "@/lib/supabase/auth-helpers";
 import { buildSidebarPreview } from "@/lib/data/sidebar-preview";
+import { dashboardModeForPath, MEMORIALS_BASE } from "@/lib/dashboard-nav";
 
 export default async function DashboardLayout({
   children,
@@ -18,10 +20,17 @@ export default async function DashboardLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [sidebarPreview, me] = await Promise.all([
+  const [sidebarPreview, me, memOnly] = await Promise.all([
     buildSidebarPreview(supabase),
     getCurrentCrmUser(),
+    supabase.rpc("crm_is_memorials_only"),
   ]);
+  // עובד/ת "מצבות בלבד" — לא רואה את צד הקבלנים
+  const memorialsOnly = memOnly.error ? false : memOnly.data === true;
+  if (memorialsOnly) {
+    const pathname = (await headers()).get("x-pathname") ?? "";
+    if (dashboardModeForPath(pathname) !== "memorials") redirect(MEMORIALS_BASE);
+  }
 
   return (
     <AppShell
@@ -39,6 +48,7 @@ export default async function DashboardLayout({
         userId: me?.userId ?? user.id,
       }}
       sidebarPreview={sidebarPreview}
+      memorialsOnly={memorialsOnly}
     >
       {me ? (
         children

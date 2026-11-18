@@ -40,3 +40,14 @@ export async function setUserRole(
   revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
+
+/** הרשאת "מצבות בלבד" לעובד/ת (מנהל בלבד) */
+export async function setUserMemorialsOnly(userId: string, value: boolean): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { ok: false, message: auth.message };
+  if (!z.string().uuid().safeParse(userId).success) return { ok: false, message: "מזהה משתמש לא תקין" };
+  const { error } = await auth.supabase.rpc("crm_set_user_memorials_only", { p_user_id: userId, p_value: value });
+  if (error) return { ok: false, message: toHebrewError(error) };
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
