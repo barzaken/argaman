@@ -1692,6 +1692,8 @@ CRM-side Morning messages (before anything is sent): see §9.12 and the field me
 
 The CRM has two modes. **קבלנים** is everything above (B2B: tombstone makers, stock, delivery notes). **מצבות** is for private families who order a tombstone, grave cleaning or lettering renewal, mostly through the website argmn.co.il. Switch with the two buttons at the top of the sidebar: **"קבלנים"** and **"מצבות"**. In memorials mode the sidebar shows **"מצבות — סקירה"**, **"לידים"**, **"הזמנות פרטיות"**, **"תזכורות"**; **"יומן פעולות"** and **"הגדרות"** sit at the bottom of the sidebar.
 
+The business's public contact details (as on argmn.co.il): phone and WhatsApp **054-2307092**, email **argmntrade1@gmail.com**, address **משה סנה 53, תל אביב**. Give these to families who ask.
+
 A user marked **"מצבות בלבד"** (in הגדרות) sees only memorials mode; any other address sends them to `/dashboard/memorials`.
 
 ### 19.1 The hourly new-lead check (every round hour, 24/7)
@@ -1743,12 +1745,17 @@ The business rule is **call the family right after they leave details**. A lead'
 
 `/dashboard/memorials/orders` is a board with one column per stage: **"שיחה"**, **"הצעה"**, **"מקדמה"**, **"אישור הדמיה"**, **"ייצור"**, **"חריטה"**, **"התקנה"**. Closed ones are under **"הושלמו / בוטלו"**. Kinds: **"מצבה"**, **"ניקוי קבר"**, **"חידוש אותיות"**, **"אחר"**. Every tombstone is priced individually; there is no price list.
 
+Business rules for private orders:
+- **Payment terms:** a **20% deposit when the order is placed**, and the remaining **80% after the tombstone is built**. **"מקדמה נדרשת"** fills itself with 20% of the price when left empty; the order page shows **"מקדמה (בביצוע ההזמנה)"** (with what is still missing) and **"יתרה אחרי בניית המצבה"**.
+- **Stock:** private tombstones **do not** use or reserve contractor stock (מלאי). Never add, deduct or reserve inventory for a private order.
+- **Stones:** the stone names chosen in the website designer are kept as written on the lead. Do not try to match them to the stone catalog (קטלוג אבן).
+
 Order page `/dashboard/memorials/orders/<id>`:
 - Stage chips (click a stage to move there), **"העברה ל{next stage}"**, **"ביטול הזמנה"** (with reason), **"פתיחה מחדש"**, **"מחיקה"** (admin only). Changing a stage needs the person's instruction.
 - **"עריכה"** → the form: customer, phone, email, address, deceased name, death date (Gregorian and Hebrew), cemetery, grave location, **"מחיר מוסכם (כולל מע״מ)"**, **"מקדמה נדרשת"**, **"תאריך התקנה"**, design link, **"נוסח המצבה"**, notes. Filling **"תאריך פטירה (לועזי)"** creates the shloshim and azkara reminders by itself.
 - **"הדמיות ותמונות"**: the image from the website and **"העלאת הדמיה"** for the office's render.
 - **"נוסח ואישור המשפחה (חתימה דיגיטלית)"**: type the wording, pick the render, click **"יצירת קישור לאישור וחתימה"**. The link (`https://crm.argmn.co.il/approve/<code>`) is copied; **"שליחה בוואטסאפ"** opens WhatsApp to the family with the link. The family reads the wording and the render, types their name, signs with a finger and confirms. Then the box shows **"נחתם ע״י … ב-…"** and **"צפייה והדפסה של האישור החתום"** (the signed record, filed with the order). A new link cancels the previous one. Creating and sending the link **needs the person's approval** (it is a message to a customer).
-- **"תשלומים"**: **"סכום"**, **"אמצעי"**, **"תאריך"**, **"זו מקדמה"**, **"רישום תשלום"**. A deposit moves an order at שיחה/הצעה to **"מקדמה"**. Needs approval, like every payment.
+- **"תשלומים"**: **"סכום"** (for the first payment it is pre-filled with the deposit amount), **"אמצעי"**, **"תאריך"**, **"זו מקדמה"**, **"רישום תשלום"**. A deposit moves an order at שיחה/הצעה to **"מקדמה"**. Needs approval, like every payment.
 - **"מסמכי Morning"**: types **"חשבונית עסקה"** (300), **"חשבונית מס"** (305), **"חשבונית מס קבלה"** (320), **"קבלה"** (400), and **"חשבונית זיכוי"** (330) **only** for an admin, only when the order is **cancelled** and the family **already paid**. 320/400 are issued for a recorded payment (**"עבור תשלום"**). Cheques: issue from the full Morning screen (§9). Every Morning document needs approval (§1.2).
 - **"תזכורות (שלושים, אזכרה, מעקב)"**: list, **"בוצע"**, **"הוספת תזכורת"**.
 

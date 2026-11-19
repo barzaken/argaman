@@ -21,7 +21,7 @@ import { isGreenInvoiceConfigured } from "@/lib/green-invoice/config";
 import { formatDateShort, formatIls } from "@/lib/db/format";
 import { leadWhatsAppText } from "@/lib/memorials/contact";
 import { publicBaseUrl } from "@/lib/memorials/public-url";
-import { MEM_ORDER_KIND_LABELS, type MemOrderRow } from "@/lib/memorials/constants";
+import { MEM_ORDER_KIND_LABELS, memDepositAmount, type MemOrderRow } from "@/lib/memorials/constants";
 
 export default async function MemorialOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -40,6 +40,9 @@ export default async function MemorialOrderPage({ params }: { params: Promise<{ 
   const payments = (pays.data ?? []) as PaymentItem[];
   const paidTotal = payments.reduce((s, p) => s + Number(p.amount), 0);
   const balance = o.price !== null ? Number(o.price) - paidTotal : null;
+  // תנאי תשלום: מקדמה (ברירת מחדל 20%) בביצוע ההזמנה, היתרה אחרי בניית המצבה
+  const deposit = o.deposit_amount !== null ? Number(o.deposit_amount) : o.price !== null ? memDepositAmount(Number(o.price)) : null;
+  const depositMissing = deposit !== null ? Math.max(0, deposit - paidTotal) : null;
   const base = await publicBaseUrl();
 
   return (
@@ -77,6 +80,18 @@ export default async function MemorialOrderPage({ params }: { params: Promise<{ 
               <InfoRow label="מחיר" value={o.price !== null ? formatIls(Number(o.price)) : null} />
               <InfoRow label="שולם" value={formatIls(paidTotal)} />
               <InfoRow label="יתרה" value={balance !== null ? formatIls(balance) : null} />
+              <InfoRow
+                label="מקדמה (בביצוע ההזמנה)"
+                value={
+                  deposit !== null
+                    ? `${formatIls(deposit)} · ${depositMissing ? `חסר ${formatIls(depositMissing)}` : "שולמה"}`
+                    : null
+                }
+              />
+              <InfoRow
+                label="יתרה אחרי בניית המצבה"
+                value={o.price !== null && deposit !== null ? formatIls(Number(o.price) - deposit) : null}
+              />
               {o.design_url ? (
                 <InfoRow
                   label="עיצוב באתר"
@@ -121,7 +136,7 @@ export default async function MemorialOrderPage({ params }: { params: Promise<{ 
 
         <div className="flex flex-col gap-4">
           <Section title="תשלומים">
-            <PaymentsPanel orderId={o.id} payments={payments} />
+            <PaymentsPanel orderId={o.id} payments={payments} deposit={deposit} />
           </Section>
           <Section title="מסמכי Morning">
             <MorningDocsPanel

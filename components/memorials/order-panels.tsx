@@ -396,11 +396,20 @@ export type DocItem = {
   description: string | null;
 };
 
-export function PaymentsPanel({ orderId, payments }: { orderId: string; payments: PaymentItem[] }) {
+export function PaymentsPanel({
+  orderId,
+  payments,
+  deposit = null,
+}: {
+  orderId: string;
+  payments: PaymentItem[];
+  deposit?: number | null;
+}) {
   const { pending, run } = useRun();
   const { isAdmin } = useCrmRole();
   const [form, setForm] = useState({
-    amount: "",
+    // תשלום ראשון: מציעים את סכום המקדמה
+    amount: payments.length === 0 && deposit ? String(deposit) : "",
     method: "transfer",
     paid_at: todayIsoInIsrael(),
     is_deposit: payments.length === 0,

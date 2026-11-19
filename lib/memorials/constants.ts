@@ -77,6 +77,13 @@ export const MEM_LEAD_SOURCE_LABELS: Record<MemLeadSource, string> = {
   other: "אחר",
 };
 
+/** תנאי תשלום: 20% מקדמה בביצוע ההזמנה, 80% אחרי בניית המצבה */
+export const MEM_DEPOSIT_RATE = 0.2;
+
+export function memDepositAmount(price: number): number {
+  return Math.round(price * MEM_DEPOSIT_RATE);
+}
+
 export const MEM_PAYMENT_METHODS = ["cash", "cheque", "card", "transfer", "app", "other"] as const;
 export type MemPaymentMethod = (typeof MEM_PAYMENT_METHODS)[number];
 export const MEM_PAYMENT_METHOD_LABELS: Record<MemPaymentMethod, string> = {
