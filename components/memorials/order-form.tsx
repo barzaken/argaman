@@ -95,7 +95,7 @@ export function OrderForm({ order }: { order?: MemOrderRow }) {
               <Field label="מחיר מוסכם (כולל מע״מ)">
                 <Input name="price" inputMode="decimal" dir="ltr" className="text-start" defaultValue={o?.price ?? ""} />
               </Field>
-              <Field label="מקדמה נדרשת">
+              <Field label="מקדמה נדרשת (ריק = 20% מהמחיר)">
                 <Input name="deposit_amount" inputMode="decimal" dir="ltr" className="text-start" defaultValue={o?.deposit_amount ?? ""} />
               </Field>
               <Field label="תאריך התקנה">

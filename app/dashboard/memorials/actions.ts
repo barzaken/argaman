@@ -12,6 +12,7 @@ import {
   MEM_LEAD_STATUSES,
   MEM_ORDER_KINDS,
   MEM_PAYMENT_METHODS,
+  memDepositAmount,
   MEM_STAGES,
   type MemDocType,
   type MemPaymentMethod,
@@ -228,6 +229,8 @@ function orderPatch(v: z.infer<typeof orderSchema>) {
     phone: v.phone || null,
     death_date: v.death_date ?? null,
     installation_date: v.installation_date ?? null,
+    // ברירת מחדל לפי תנאי התשלום: 20% מקדמה בביצוע ההזמנה
+    deposit_amount: v.deposit_amount ?? (v.price != null ? memDepositAmount(v.price) : null),
   };
 }
 
